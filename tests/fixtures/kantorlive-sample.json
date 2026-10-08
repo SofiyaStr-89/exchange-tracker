@@ -1,0 +1,63 @@
+{
+  "success": true,
+  "data": {
+    "city": { "name": "Warsaw", "slug": "warszawa", "translations": { "en": "Warsaw", "pl": "Warszawa" }, "coordinates": { "lat": 52.229676, "lon": 21.012229 } },
+    "kantors": [
+      {
+        "id": 1,
+        "name": { "pl": "Kantor Testowy Centrum" },
+        "slug": "111111-kantor-testowy-centrum",
+        "url": "https://kantor.live/kantory/warszawa/111111-kantor-testowy-centrum",
+        "address": { "pl": "Marszałkowska 1, 00-001 Warszawa" },
+        "lat": 52.23,
+        "lon": 21.01,
+        "schedule": [
+          { "day": "mo", "begin": "09:00:00", "end": "18:00:00" },
+          { "day": "tu", "begin": "09:00:00", "end": "18:00:00" },
+          { "day": "we", "begin": "09:00:00", "end": "18:00:00" },
+          { "day": "th", "begin": "09:00:00", "end": "18:00:00" },
+          { "day": "fr", "begin": "09:00:00", "end": "18:00:00" },
+          { "day": "sa", "begin": "09:30:00", "end": "13:30:00" },
+          { "day": "su", "begin": "00:01:00", "end": "00:02:00" }
+        ],
+        "rates": {
+          "retail": {
+            "USD": { "currency": "USD", "base_currency": "PLN", "amount": 1, "buy": "3.865", "sell": "3.91", "updated_at": "2026-10-08T16:00:18+00:00" },
+            "BGN": { "currency": "BGN", "base_currency": "PLN", "amount": 1, "buy": "1.5", "sell": "0", "updated_at": "2026-10-08T16:00:18+00:00" },
+            "HUF": { "currency": "HUF", "base_currency": "PLN", "amount": 100, "buy": "1.183", "sell": "1.219", "updated_at": "2026-10-08T16:00:18+00:00" },
+            "XAU": { "currency": "XAU", "base_currency": "PLN", "amount": 1, "buy": "0", "sell": "0", "updated_at": "2026-10-08T16:00:18+00:00" }
+          },
+          "wholesale": []
+        }
+      },
+      {
+        "id": 2,
+        "name": { "pl": "Kantor Całodobowy" },
+        "slug": "222222-kantor-calodobowy",
+        "address": { "pl": "Dworcowa 2, 00-002 Warszawa" },
+        "lat": null,
+        "lon": null,
+        "schedule": [
+          { "day": "mo", "begin": "00:00:00", "end": "23:59:00" },
+          { "day": "su", "begin": "00:00:00", "end": "23:59:00" }
+        ],
+        "rates": { "retail": [], "wholesale": [] }
+      },
+      {
+        "id": 3,
+        "name": { "pl": "Kantor Bez Godzin" },
+        "slug": "333333-kantor-bez-godzin",
+        "address": { "pl": "Prosta 3, 00-003 Warszawa" },
+        "lat": 52.24,
+        "lon": 21.02,
+        "schedule": [],
+        "rates": {
+          "retail": {
+            "EUR": { "currency": "EUR", "base_currency": "PLN", "amount": 1, "buy": "4.36", "sell": "4.38", "updated_at": "2026-01-15T10:05:00+00:00" }
+          },
+          "wholesale": []
+        }
+      }
+    ]
+  }
+}

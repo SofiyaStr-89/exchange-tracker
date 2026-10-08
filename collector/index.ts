@@ -1,5 +1,15 @@
-// Сборщик курсов для GitHub Actions (SPEC: «Архитектура»). Адаптеры подключаются на следующих шагах.
+// Ручной сбор одного города: npm run collect -- <источник> <город>, например kantorlive warszawa.
+// Нужен DATABASE_URL (локально — в .env.local).
 
-const adapters: string[] = [];
+import { collectCity, ADAPTERS } from '../lib/collect.js';
+import { getDb } from '../lib/db/index.js';
 
-console.log(`Сборщик запущен ${new Date().toISOString()}, адаптеров: ${adapters.length}`);
+const [source, city] = process.argv.slice(2);
+if (!source || !city) {
+  console.error(`Использование: npm run collect -- <источник> <город>. Источники: ${Object.keys(ADAPTERS).join(', ')}`);
+  process.exit(1);
+}
+
+const outcome = await collectCity(getDb(), source, city);
+console.log(`${source} / ${city}:`, outcome);
+if (outcome.status === 'error') process.exit(1);

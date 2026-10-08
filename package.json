@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "collect": "tsx collector/index.ts",
+    "collect": "tsx --env-file-if-exists=.env.local collector/index.ts",
     "probe": "tsx collector/probe.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
