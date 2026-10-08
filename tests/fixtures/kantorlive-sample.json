@@ -48,8 +48,8 @@
         "name": { "pl": "Kantor Bez Godzin" },
         "slug": "333333-kantor-bez-godzin",
         "address": { "pl": "Prosta 3, 00-003 Warszawa" },
-        "lat": 52.24,
-        "lon": 21.02,
+        "lat": 51.10895,
+        "lon": 17.03927,
         "schedule": [],
         "rates": {
           "retail": {

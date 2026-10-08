@@ -2,6 +2,7 @@
 // Особенности источника — в recon/REPORT.md и SPEC.md (таблица источников).
 
 import type { WeekHours } from '../db/schema.js';
+import { distanceMeters } from '../geo.js';
 import { USER_AGENT } from '../probe.js';
 import { zonedWallTimeToUtc } from '../time.js';
 import { normalizeRate, type AdapterResult, type NormalizedExchanger, type NormalizedRate } from './types.js';
@@ -29,7 +30,10 @@ interface KlKantor {
 }
 
 interface KlResponse {
-  data: { city: { name: string; slug: string; translations?: Record<string, string> }; kantors: KlKantor[] };
+  data: {
+    city: { name: string; slug: string; translations?: Record<string, string>; coordinates?: { lat: number; lon: number } };
+    kantors: KlKantor[];
+  };
 }
 
 const DAYS: Record<string, keyof WeekHours> = {
@@ -43,6 +47,9 @@ const DAYS: Record<string, keyof WeekHours> = {
 };
 
 const hhmm = (time: string) => time.slice(0, 5);
+
+/** Координаты дальше этого от центра города считаем ошибкой источника (у одного варшавского kantoru были вроцлавские). */
+const MAX_DISTANCE_FROM_CITY_M = 40_000;
 
 function parseHours(schedule: KlKantor['schedule']): WeekHours | null {
   if (!schedule?.length) return null;
@@ -65,13 +72,19 @@ function slugNumber(slug: string): string {
 
 export function parseKantorLive(json: KlResponse, citySlug: string): AdapterResult {
   const cityName = json.data.city.translations?.pl ?? json.data.city.name;
+  const center = json.data.city.coordinates;
   const exchangers: NormalizedExchanger[] = [];
   const rates: NormalizedRate[] = [];
 
   for (const k of json.data.kantors) {
     const number = slugNumber(k.slug);
     const id = `pl-${citySlug}-${SOURCE}-${number}`;
-    const hasCoords = typeof k.lat === 'number' && typeof k.lon === 'number' && k.lat !== 0 && k.lon !== 0;
+    const hasCoords =
+      typeof k.lat === 'number' &&
+      typeof k.lon === 'number' &&
+      k.lat !== 0 &&
+      k.lon !== 0 &&
+      (!center || distanceMeters({ lat: k.lat, lng: k.lon }, { lat: center.lat, lng: center.lon }) <= MAX_DISTANCE_FROM_CITY_M);
     exchangers.push({
       id,
       country: 'PL',

@@ -14,7 +14,8 @@
     "collect": "tsx --env-file-if-exists=.env.local collector/index.ts",
     "probe": "tsx collector/probe.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "geocode": "tsx --env-file-if-exists=.env.local collector/geocode.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

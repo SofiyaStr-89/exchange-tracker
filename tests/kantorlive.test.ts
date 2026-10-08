@@ -28,6 +28,10 @@ describe('parseKantorLive: обменники', () => {
     expect(byId['pl-warszawa-kantorlive-222222']).toMatchObject({ lat: null, lng: null, coordsSource: null });
   });
 
+  it('координаты из другого города отбрасываются, чтобы их нашёл геокодер', () => {
+    expect(byId['pl-warszawa-kantorlive-333333']).toMatchObject({ lat: null, lng: null, coordsSource: null });
+  });
+
   it('часы по дням; 00:01–00:02 — выходной; 00:00–23:59 — круглосуточно', () => {
     expect(byId['pl-warszawa-kantorlive-111111']!.hours).toEqual({
       mon: ['09:00', '18:00'],
