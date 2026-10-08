@@ -4,14 +4,13 @@ import { and, between, eq, isNotNull } from 'drizzle-orm';
 import type { getDb } from './db/index.js';
 import { exchangers, rates, type WeekHours } from './db/schema.js';
 import { distanceMeters } from './geo.js';
+import { OFFICIAL_SOURCES } from './sources.js';
 
 export const FRESH_MS = 15 * 60 * 1000;
 export const MAX_RADIUS_M = 2000;
 const NEAREST_OUTSIDE = 3;
 /** Насколько далеко искать «3 ближайших» за радиусом (FR-9). */
 const SEARCH_RADIUS_M = 20_000;
-/** Официальные API банков выигрывают при равной свежести (правило склейки 2). */
-const OFFICIAL_SOURCES = ['belarusbank', 'mtbank'];
 
 export function isStale(fetchedAt: Date | null, now = new Date()): boolean {
   return !fetchedAt || now.getTime() - fetchedAt.getTime() > FRESH_MS;
