@@ -18,7 +18,7 @@
 
 - Стек — сервисы, где у пользователя уже есть аккаунты (как в её fin-tracker / travel-tracker): Vercel (fra1) для PWA и функций `/api/*`, Neon Postgres + Drizzle, GitHub Actions только для еженедельной пересборки списков и координат. Курсы собираются только по запросу (открыли приложение → данные города старше 15 мин → отдать старые с «обновляется» и обновить в фоне), расписания для курсов нет. Cloudflare не используем.
 - Структура: `app/` (PWA, Vite + TypeScript, Leaflet + leaflet.markercluster), `api/` (функции Vercel), `collector/` (сбор), общий код адаптеров. Телефон никогда не ходит к источникам курсов напрямую.
-- Таблицы: `exchangers`, `rates` (с `confirmed_at`), `city_fetches`. API: `POST /api/exchangers` {lat,lng,radius} (координаты только в теле — адреса попадают в журнал Vercel), `/api/exchangers/:id`, `/api/currencies?country`, `/api/health`.
+- Таблицы: `exchangers`, `rates` (с `confirmed_at`), `city_fetches`. API: `POST /api/exchangers` {bounds, center} — зона поиска = видимая область карты, радиуса нет (решение 08.10.2026) (координаты только в теле — адреса попадают в журнал Vercel), `/api/exchangers/:id`, `/api/currencies?country`, `/api/health`.
 - Источники: PL — JSON карты kantor.live (основа), zlata.ws (свежесть), marketportal.pl (ширина); BY — myfin.by `/currency/<город>` (основной), API Беларусбанка и МТБанка (приоритетные для своих банков), kurs.onliner.by (координаты Минска). Сбер API и rates.fm не используем. Каждый источник — отдельный адаптер к общей модели. Правила склейки 1–8 в SPEC.md.
 - В Польше только kantory, без отделений банков.
 - Курсы хранятся как «местная валюта за 1 единицу иностранной»; 0/пусто = нет этой стороны курса (проверять покупку и продажу отдельно).
