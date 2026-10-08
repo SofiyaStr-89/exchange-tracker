@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import type { Plugin } from 'vite';
+import { loadEnv, type Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 const root = import.meta.dirname;
@@ -9,6 +9,8 @@ function localApi(): Plugin {
   return {
     name: 'local-api',
     configureServer(server) {
+      // Функциям нужны серверные переменные (DATABASE_URL) из .env.local, как на Vercel.
+      Object.assign(process.env, loadEnv(server.config.mode, root, ''));
       server.middlewares.use(async (req, res, next) => {
         const match = req.url?.match(/^\/api\/([a-z0-9-]+)(?:\?|$)/);
         if (!match) return next();
