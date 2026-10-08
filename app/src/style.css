@@ -1,45 +1,234 @@
 :root {
   --bg: #ffffff;
+  --surface: #ffffff;
   --text: #1a1d21;
   --muted: #6b7280;
+  --border: #d9dde3;
+  --plate-bg: #ffffff;
+  --plate-text: #1a1d21;
+  --best-bg: #15803d;
+  --best-text: #ffffff;
   --ok: #15803d;
   --error: #b91c1c;
+  --info-bg: rgba(255, 255, 255, 0.95);
+  --warn-bg: #fff4d6;
+  --accent: #2563eb;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #111418;
+    --surface: #1b1f24;
     --text: #e6e8eb;
     --muted: #9aa3ad;
+    --border: #343a42;
+    --plate-bg: #1b1f24;
+    --plate-text: #e6e8eb;
+    --best-bg: #16a34a;
     --ok: #4ade80;
     --error: #f87171;
+    --info-bg: rgba(27, 31, 36, 0.95);
+    --warn-bg: #3a2f12;
+    --accent: #60a5fa;
   }
 }
 
-body {
+html,
+body,
+#app {
+  height: 100%;
   margin: 0;
+}
+
+body {
   background: var(--bg);
   color: var(--text);
 }
 
-main {
-  padding: 24px 16px;
+.map {
+  position: absolute;
+  inset: 0;
 }
 
-h1 {
-  margin: 0 0 8px;
-  font-size: 22px;
+.banner {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 16px;
+  right: 16px;
+  z-index: 1000;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--info-bg);
+  color: var(--text);
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.banner-warn {
+  background: var(--warn-bg);
+}
+
+.banner[hidden] {
+  display: none;
+}
+
+/* Индикатор фонового обновления курсов (SPEC: «Скорость»). */
+.refresh-badge {
+  position: absolute;
+  left: 50%;
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 999;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--info-bg);
+  color: var(--text);
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.refresh-badge[hidden] {
+  display: none;
+}
+
+/* Плашка с курсом (FR-14). Якорь — нижняя середина плашки. */
+.plate-anchor {
+  background: none;
+  border: none;
+}
+
+.plate {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  transform: translate(-50%, -6px);
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--plate-bg);
+  color: var(--plate-text);
+  border: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.plate::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom: 0;
+  border-top-color: var(--border);
+}
+
+/* FR-16: лучший курс */
+.plate-best {
+  background: var(--best-bg);
+  color: var(--best-text);
+  border-color: var(--best-bg);
+}
+
+.plate-best::after {
+  border-top-color: var(--best-bg);
+}
+
+.search-circle {
+  stroke: var(--accent);
+  stroke-width: 2;
+  fill: var(--accent);
+  fill-opacity: 0.06;
+}
+
+.user-dot {
+  stroke: #ffffff;
+  stroke-width: 3;
+  fill: #2563eb;
+  fill-opacity: 1;
+}
+
+/* Карточка снизу (FR-28) */
+.card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  max-height: 70%;
+  overflow-y: auto;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.card[hidden] {
+  display: none;
+}
+
+.card h2 {
+  margin: 0 32px 4px 0;
+  font-size: 18px;
+}
+
+.card p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.card a {
+  color: var(--accent);
+}
+
+.card-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.card-rates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.card-rates div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.card-rates strong {
+  font-size: 20px;
 }
 
 .muted {
   color: var(--muted);
 }
 
-.status-ok {
+.status-open {
   color: var(--ok);
+  font-weight: 600;
 }
 
-.status-error {
+.status-closed {
   color: var(--error);
+  font-weight: 600;
 }

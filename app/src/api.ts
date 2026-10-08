@@ -1,0 +1,36 @@
+// Запросы к своему API. Координаты — в теле POST, не в адресе (SPEC: «Приватность»).
+
+import type { WeekHours } from '../../lib/db/schema.js';
+import type { ApiRate } from './rates.js';
+
+export interface ApiExchanger {
+  id: string;
+  country: 'PL' | 'BY';
+  city: string;
+  name: string;
+  bank: string | null;
+  address: string;
+  lat: number;
+  lng: number;
+  distance: number;
+  hours: WeekHours | null;
+  rates: Record<string, ApiRate>;
+}
+
+export interface ExchangersResponse {
+  radius: number;
+  refreshing: boolean;
+  dataFetchedAt: string | null;
+  exchangers: ApiExchanger[];
+  nearest: ApiExchanger[];
+}
+
+export async function fetchExchangers(center: { lat: number; lng: number }, radius: number): Promise<ExchangersResponse> {
+  const response = await fetch('/api/exchangers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lat: center.lat, lng: center.lng, radius }),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return (await response.json()) as ExchangersResponse;
+}
