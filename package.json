@@ -15,7 +15,8 @@
     "probe": "tsx collector/probe.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "geocode": "tsx --env-file-if-exists=.env.local collector/geocode.ts"
+    "geocode": "tsx --env-file-if-exists=.env.local collector/geocode.ts",
+    "stats": "tsx --env-file-if-exists=.env.local collector/stats.ts"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.22",

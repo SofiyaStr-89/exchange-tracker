@@ -1,0 +1,16 @@
+{
+  "elements": [
+    {
+      "type": "node", "id": 101, "lat": 52.2301, "lon": 21.0101,
+      "tags": { "amenity": "bureau_de_change", "name": "Kantor Testowy", "addr:street": "Marszałkowska", "addr:housenumber": "10", "addr:postcode": "00-001", "addr:city": "Warszawa", "opening_hours": "Mo-Fr 09:00-18:00", "phone": "+48 22 111 22 33", "website": "https://testowy.example" }
+    },
+    {
+      "type": "way", "id": 202, "center": { "lat": 52.24, "lon": 21.02 },
+      "tags": { "amenity": "bureau_de_change", "contact:phone": "22 444 55 66", "contact:website": "ftp://bad.example" }
+    },
+    { "type": "node", "id": 303, "tags": { "amenity": "bureau_de_change", "name": "Bez współrzędnych" } },
+    { "type": "node", "id": 404, "lat": 52.23, "lon": 21.0, "tags": { "amenity": "bureau_de_change", "name": "Bitcomat FlyingAtom", "currency:XBT": "yes" } },
+    { "type": "node", "id": 505, "lat": 52.231, "lon": 21.001, "tags": { "amenity": "bureau_de_change", "name": "Kantor Z Bitcoinem w Ofercie Nie", "currency:XBT": "yes", "vending": "currency" } },
+    { "type": "node", "id": 606, "lat": 52.232, "lon": 21.002, "tags": { "amenity": "bureau_de_change", "name": "Kantor Plus", "currency:XBT": "yes", "currency:EUR": "yes" } }
+  ]
+}

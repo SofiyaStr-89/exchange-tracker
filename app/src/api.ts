@@ -17,6 +17,7 @@ export interface ApiExchanger {
   hours: WeekHours | null;
   phone: string | null;
   website: string | null;
+  sources: string[];
   rates: Record<string, ApiRate>;
 }
 

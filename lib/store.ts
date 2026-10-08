@@ -1,6 +1,6 @@
 // Запись результата адаптера в базу (SPEC: «Модель данных», правила склейки 3 и 6).
 
-import { and, eq, gt, sql } from 'drizzle-orm';
+import { and, eq, gt, like, notInArray, sql } from 'drizzle-orm';
 import type { getDb } from './db/index.js';
 import { cityFetches, exchangers, rates } from './db/schema.js';
 import type { AdapterResult, Country } from './adapters/types.js';
@@ -53,6 +53,25 @@ export async function saveResult(db: Db, result: AdapterResult): Promise<void> {
         },
       });
   }
+}
+
+/**
+ * Удаляет обменники источника в этом городе, которых больше нет в его ответе (закрылись, удалены из OSM).
+ * Пустой ответ ничего не удаляет: это скорее сбой источника, чем закрытие всех обменников.
+ */
+export async function removeMissing(db: Db, result: AdapterResult): Promise<number> {
+  const ids = result.exchangers.map((e) => e.id);
+  if (!ids.length) return 0;
+  const prefixes = new Set(ids.map((id) => id.slice(0, id.lastIndexOf('-') + 1)));
+  let removed = 0;
+  for (const prefix of prefixes) {
+    const gone = await db
+      .delete(exchangers)
+      .where(and(like(exchangers.id, `${prefix}%`), notInArray(exchangers.id, ids)))
+      .returning({ id: exchangers.id });
+    removed += gone.length;
+  }
+  return removed;
 }
 
 const LOCK_SECONDS = 120;

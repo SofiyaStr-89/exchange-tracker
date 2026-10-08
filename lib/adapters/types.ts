@@ -22,6 +22,9 @@ export interface NormalizedExchanger {
   website: string | null;
 }
 
+/** Криптоматы и криптообменники — не обмен наличной валюты, на карту не попадают. */
+export const isCryptoName = (text: string) => /bitcoin|bitcomat|crypto|kryptowalut|\bbtc\b/i.test(text);
+
 /** Оставляет только http(s)-адрес сайта, иначе null. */
 export function safeWebsite(raw: string | null | undefined): string | null {
   if (!raw) return null;

@@ -5,6 +5,7 @@ import type { getDb } from './db/index.js';
 import { exchangers, rates, type WeekHours } from './db/schema.js';
 import { boundsCenter, inside, type Bounds } from './bounds.js';
 import { distanceMeters } from './geo.js';
+import { mergeDuplicates } from './merge.js';
 import { OFFICIAL_SOURCES } from './sources.js';
 
 export { boundsSize, MAX_SIDE_M, type Bounds } from './bounds.js';
@@ -14,8 +15,8 @@ const NEAREST_OUTSIDE = 3;
 /** Насколько далеко от центра области искать ближайшие за её пределами (FR-9). */
 const NEAREST_MAX_M = 20_000;
 
-export function isStale(fetchedAt: Date | null, now = new Date()): boolean {
-  return !fetchedAt || now.getTime() - fetchedAt.getTime() > FRESH_MS;
+export function isStale(fetchedAt: Date | null, now = new Date(), maxAgeMs = FRESH_MS): boolean {
+  return !fetchedAt || now.getTime() - fetchedAt.getTime() > maxAgeMs;
 }
 
 /** nearestFilter — какие обменники годятся в «ближайшие» (например, только с курсом нужной валюты). */
@@ -73,6 +74,8 @@ export interface ExchangerOut {
   hours: WeekHours | null;
   phone: string | null;
   website: string | null;
+  /** Источники, из которых склеен обменник (правило склейки 1). */
+  sources: string[];
   rates: Record<string, Omit<RateRow, 'currency'>>;
 }
 
@@ -127,9 +130,10 @@ export async function loadInBounds(
       hours: e.hours,
       phone: e.phone,
       website: e.website,
+      sources: Object.keys(e.sourceIds),
       rates: Object.fromEntries(Object.entries(merged).map(([cur, { currency: _, ...rest }]) => [cur, rest])),
     };
     return out;
   });
-  return splitByBounds(points, bounds, (e) => Boolean(e.rates[currency]));
+  return splitByBounds(mergeDuplicates(points), bounds, (e) => Boolean(e.rates[currency]));
 }

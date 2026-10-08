@@ -5,7 +5,7 @@ import type { WeekHours } from '../db/schema.js';
 import { distanceMeters } from '../geo.js';
 import { USER_AGENT } from '../probe.js';
 import { zonedWallTimeToUtc } from '../time.js';
-import { normalizeRate, safeWebsite, type AdapterResult, type NormalizedExchanger, type NormalizedRate } from './types.js';
+import { isCryptoName, normalizeRate, safeWebsite, type AdapterResult, type NormalizedExchanger, type NormalizedRate } from './types.js';
 
 export const SOURCE = 'kantorlive';
 
@@ -79,6 +79,7 @@ export function parseKantorLive(json: KlResponse, citySlug: string): AdapterResu
   const rates: NormalizedRate[] = [];
 
   for (const k of json.data.kantors) {
+    if (isCryptoName(Object.values(k.name).join(' '))) continue;
     const number = slugNumber(k.slug);
     const id = `pl-${citySlug}-${SOURCE}-${number}`;
     const hasCoords =

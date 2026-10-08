@@ -15,7 +15,7 @@ export interface City {
 }
 
 export const CITIES: City[] = [
-  { id: 'pl-warszawa', country: 'PL', name: 'Warszawa', lat: 52.2297, lng: 21.0122, sources: { kantorlive: 'warszawa' } },
+  { id: 'pl-warszawa', country: 'PL', name: 'Warszawa', lat: 52.2297, lng: 21.0122, sources: { kantorlive: 'warszawa', osm: 'Warszawa' } },
 ];
 
 /** Города, которые могут попасть в поиск вокруг точки: центр города не дальше 30 км. */

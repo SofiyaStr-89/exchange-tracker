@@ -2,7 +2,7 @@
 
 import { and, eq, inArray } from 'drizzle-orm';
 import type { City } from './cities.js';
-import { collectCity } from './collect.js';
+import { ADAPTERS, collectCity } from './collect.js';
 import type { getDb } from './db/index.js';
 import { cityFetches } from './db/schema.js';
 import { isStale } from './exchangers.js';
@@ -40,8 +40,9 @@ export async function planRefresh(db: Db, cities: City[], now = new Date()): Pro
     const at = fetched.get(`${source}|${city}`) ?? null;
     if (!at) plan.firstTime.push({ source, city });
     else {
-      if (isStale(at, now)) plan.stale.push({ source, city });
-      if (!plan.oldestFetchedAt || at < plan.oldestFetchedAt) plan.oldestFetchedAt = at;
+      if (isStale(at, now, ADAPTERS[source]?.maxAgeMs)) plan.stale.push({ source, city });
+      // Время данных показываем по источникам курсов, а не по редко обновляемым спискам.
+      if (!ADAPTERS[source]?.maxAgeMs && (!plan.oldestFetchedAt || at < plan.oldestFetchedAt)) plan.oldestFetchedAt = at;
     }
   }
   return plan;
