@@ -34,3 +34,4 @@
   Глубокий анализ источников: `reports/Источники курсов обменников Польши и Беларуси.md`. Решения по нему внесены в SPEC.md (08.10.2026).
 - Шаг 2.1 (каркас): `app/` (Vite, корень приложения), `api/` (функции Vercel: экспорт `GET(request)` → `Response`; в `api/` только функции — тесты в `tests/`, общий код в отдельной папке), `collector/`, тексты в `app/src/i18n/ru.ts`.
   Команды: `npm run dev` (локально, `/api/*` отдаёт плагин в vite.config.ts), `npm test`, `npm run typecheck`, `npm run build`, `npm run collect`.
+- Шаг 2.2: репозиторий https://github.com/SofiyaStr-89/exchange-tracker (публичный, `main`; email коммитов — noreply GitHub, задан в локальном git config). Vercel подключён через импорт из GitHub, автодеплой при push: https://exchange-tracker-one.vercel.app (функции в fra1).
