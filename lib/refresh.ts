@@ -41,8 +41,8 @@ export async function planRefresh(db: Db, cities: City[], now = new Date()): Pro
     if (!at) plan.firstTime.push({ source, city });
     else {
       if (isStale(at, now, ADAPTERS[source]?.maxAgeMs)) plan.stale.push({ source, city });
-      // Время данных показываем по источникам курсов, а не по редко обновляемым спискам.
-      if (!ADAPTERS[source]?.maxAgeMs && (!plan.oldestFetchedAt || at < plan.oldestFetchedAt)) plan.oldestFetchedAt = at;
+      // Время данных показываем по источникам курсов, а не по редко обновляемым спискам (OSM).
+      if (source !== 'osm' && (!plan.oldestFetchedAt || at < plan.oldestFetchedAt)) plan.oldestFetchedAt = at;
     }
   }
   return plan;

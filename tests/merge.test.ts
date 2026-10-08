@@ -16,6 +16,15 @@ describe('similarNames', () => {
   it('общее название «Kantor» подходит к любому', () => {
     expect(similarNames('Kantor', 'Kantor Redar')).toBe(true);
   });
+  it('домены, «24h» и «całodobowy» не мешают', () => {
+    expect(similarNames('Kantor Respol', 'Kantor Respol24h')).toBe(true);
+    expect(similarNames('Kantor.com.pl', 'Całodobowy Kantor Polres & Cris')).toBe(true);
+  });
+  it('слова из адреса не считаются частью названия', () => {
+    const ignore = new Set(['leszno', 'okopowa', 'galeria', 'klif']);
+    expect(similarNames('Extrakantor Leszno', 'Extrakantor.pl', ignore)).toBe(true);
+    expect(similarNames('Kantor Tavex Klif', 'Kantor Tavex (X)', ignore)).toBe(true);
+  });
 });
 
 describe('mergeDuplicates (правило склейки 1)', () => {
@@ -36,6 +45,24 @@ describe('mergeDuplicates (правило склейки 1)', () => {
       p('b', 'Saska', 'ul. Targowa 46, 03-733 Warszawa', 52.2509, 21.04, ['marketportal']),
     ]);
     expect(merged).toHaveLength(1);
+  });
+
+  it('название-адрес и сайт-название склеиваются с настоящим названием', () => {
+    const merged = mergeDuplicates([
+      p('a', 'Kantor Klonowa 22', 'Klonowa 22, 00-591 Warszawa', 52.2, 21.0, ['kantorlive'], usd),
+      p('b', 'Całodobowy Kantor Polres & Cris', 'Klonowa 22, Warszawa', 52.20003, 21.0, ['marketportal']),
+      p('c', 'Kantor.com.pl', 'Klonowa 22, 00-591 Warszawa', 52.20004, 21.00004, ['osm']),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.name).toBe('Całodobowy Kantor Polres & Cris');
+  });
+
+  it('разные точки одной сети не склеиваются', () => {
+    const merged = mergeDuplicates([
+      p('a', 'Kantor Redar pod Novotelem', 'Przejście podziemne pod Novotelem', 52.2295, 21.0118, ['marketportal']),
+      p('b', 'Kantor Redar pod Rotundą', 'Przejście podziemne pod Rotundą', 52.2299, 21.0122, ['marketportal']),
+    ]);
+    expect(merged).toHaveLength(2);
   });
 
   it('аэропорт: один адрес, разные kantory — не склеиваются', () => {

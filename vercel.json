@@ -9,6 +9,9 @@
   "functions": {
     "api/probe.ts": {
       "maxDuration": 60
+    },
+    "api/exchangers.ts": {
+      "maxDuration": 60
     }
   }
 }

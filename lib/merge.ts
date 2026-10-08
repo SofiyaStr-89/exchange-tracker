@@ -9,7 +9,8 @@ import { distanceMeters } from './geo.js';
 const NEAR_M = 30;
 /** Одинаковый адрес, но координаты разных источников расходятся (геокодер, вход в ТЦ). */
 const SAME_ADDRESS_MAX_M = 300;
-const GENERIC_WORDS = new Set(['kantor', 'wymiany', 'walut', 'kantory']);
+/** Слова, которые не отличают один kantor от другого: «kantor», «całodobowy», домены, «24h». */
+const GENERIC_WORDS = new Set(['kantor', 'kantory', 'wymiany', 'walut', 'exchange', 'calodobowy', 'calodobowo', '24h', 'pl', 'com', 'eu', 'www']);
 /** Чьё название, адрес и координаты главнее при склейке: источники с курсами и проверенными адресами. */
 const SOURCE_PRIORITY = ['kantorlive', 'marketportal', 'exg', 'sprawa', 'osm'];
 
@@ -20,17 +21,20 @@ const plain = (s: string) =>
     .replace(/[̀-ͯ]/g, '')
     .replace(/ł/g, 'l');
 
-function nameTokens(name: string): Set<string> {
+const words = (text: string) => plain(text).split(/[^a-z0-9]+/).filter((w) => w.length > 1);
+
+/** Слова названия без общих слов и без слов из адреса/города («Kantor Klonowa 22» → пусто, «Respol24h» → «respol»). */
+function nameTokens(name: string, ignore: Set<string> = new Set()): Set<string> {
   return new Set(
-    plain(name)
-      .split(/[^a-z0-9]+/)
-      .filter((w) => w && !GENERIC_WORDS.has(w)),
+    words(name.replace(/24\s*h\b/gi, ' '))
+      .map((w) => w.replace(/24h$/, ''))
+      .filter((w) => w.length > 1 && !GENERIC_WORDS.has(w) && !ignore.has(w)),
   );
 }
 
-export function similarNames(a: string, b: string): boolean {
-  const ta = nameTokens(a);
-  const tb = nameTokens(b);
+export function similarNames(a: string, b: string, ignore?: Set<string>): boolean {
+  const ta = nameTokens(a, ignore);
+  const tb = nameTokens(b, ignore);
   if (!ta.size || !tb.size) return true; // «Kantor» без имени подходит к любому
   const common = [...ta].filter((w) => tb.has(w)).length;
   const smaller = Math.min(ta.size, tb.size);
@@ -56,6 +60,7 @@ export interface Mergeable {
   id: string;
   name: string;
   address: string;
+  city?: string;
   lat: number;
   lng: number;
   sources: string[];
@@ -78,7 +83,10 @@ export function mergeDuplicates<T extends Mergeable>(items: T[]): T[] {
       const b = items[j]!;
       const d = distanceMeters(a, b);
       const sameAddress = keys[i] !== '' && keys[i] === keys[j] && d <= SAME_ADDRESS_MAX_M;
-      if ((sameAddress || d <= NEAR_M) && similarNames(a.name, b.name)) parent[find(i)] = find(j);
+      if (!(sameAddress || d <= NEAR_M)) continue;
+      // Слова из адресов обоих не считаются частью названия: «Tavex Klif» в «Galeria Klif» — это Tavex.
+      const ignore = new Set([...words(a.address), ...words(b.address), ...words(a.city ?? ''), ...words(b.city ?? '')]);
+      if (similarNames(a.name, b.name, ignore)) parent[find(i)] = find(j);
     }
   }
 
@@ -92,7 +100,8 @@ export function mergeDuplicates<T extends Mergeable>(items: T[]): T[] {
         Object.keys(b.rates).length - Object.keys(a.rates).length || priority(a) - priority(b) || a.id.localeCompare(b.id),
     );
     const primary = sorted[0]!;
-    const named = sorted.find((e) => nameTokens(e.name).size > 0) ?? primary;
+    // Название — первое, где есть что-то кроме общих слов и своего же адреса («Kantor Klonowa 22» — это адрес).
+    const named = sorted.find((e) => nameTokens(e.name, new Set(words(e.address))).size > 0) ?? primary;
     const rows: RateRow[] = group.flatMap((e) => Object.entries(e.rates).map(([currency, r]) => ({ currency, ...r })));
     const merged = mergeRates(rows);
     return {
