@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 
 const root = import.meta.dirname;
 
-// Локально отдаёт /api/<имя> из api/<имя>.ts так же, как функции Vercel (экспорт GET).
+// Локально отдаёт /api/<имя> из api/<имя>.ts так же, как функции Vercel (экспорт GET, POST…).
 function localApi(): Plugin {
   return {
     name: 'local-api',
@@ -16,8 +16,17 @@ function localApi(): Plugin {
         if (!match) return next();
         try {
           const mod = await server.ssrLoadModule(resolve(root, 'api', `${match[1]}.ts`));
-          if (typeof mod.GET !== 'function') return next();
-          const response: Response = await mod.GET(new Request(`http://localhost${req.url}`));
+          const method = req.method ?? 'GET';
+          const handler = mod[method];
+          if (typeof handler !== 'function') {
+            res.statusCode = 405;
+            return res.end();
+          }
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) chunks.push(chunk as Buffer);
+          const body = method === 'GET' || method === 'HEAD' ? undefined : Buffer.concat(chunks);
+          const headers = new Headers(req.headers as Record<string, string>);
+          const response: Response = await handler(new Request(`http://localhost${req.url}`, { method, headers, body }));
           res.statusCode = response.status;
           response.headers.forEach((value, key) => res.setHeader(key, value));
           res.end(Buffer.from(await response.arrayBuffer()));
