@@ -139,3 +139,161 @@ URL: `https://marketportal.pl/kantory/kursy-walut/warszawa/eur` (аналоги�
 - Сопоставление «Exchange Group» у zlata с EXG (exg.pl) и EXG Capital (balticexchange.pl): у zlata под одним брендом смешаны обе сети.
 - kantorsprawa.pl, Valuta, Metal Market Europe, Any Money Exchange — адреса не сверялись с другими источниками.
 - Не проверено, отдаёт ли marketportal страницу по валюте дата-центровым IP так же, как городскую (по прошлой разведке городская отдаётся).
+
+---
+
+# Раунд 2 (08.10.2026, ~18:29–18:35 по Варшаве)
+
+Метод тот же: curl с UA `ExchangeMapBot/0.1 (personal non-commercial project; https://github.com/SofiyaStr-89/exchange-tracker)`, домашний IP, ≥2 с между запросами к одному сайту, не больше 3 запросов на сайт плюс robots.txt. Логинов не было, защиту ничем не обходили. Пометка «(догадка)» = не проверено.
+
+Запросы: marketportal 3 (`/eur`, `/usd`, `/regulamin`); quantor 3 (`getRates`, главная ради ссылки на регламент, `/serwis/regulamin.html`); exg 3 + robots (одна страница отдала 302 на `www.`, плюс 2 страницы филиалов); kantorymapa 2 (`/kantor/warszawa/`, `/kontakt/`); Overpass 1; zlata 0.
+
+## R2.1. marketportal.pl
+
+**Регламент** (`/regulamin`, короткий, без параграфов). Об автоматическом доступе, роботах и повторном использовании данных там **ничего нет**: ни запрета, ни разрешения. Что сказано:
+- товарные знаки и информация о kantorach «są własnością ich właścicieli», размещены «jedynie w celach informacyjnych», курсы «przybliżone»;
+- курсы не являются офертой (ст. 66 KC);
+- принимаются только kantory, у которых на сайте есть актуальные курсы, «możliwe do pobrania przez mechanizm służący do pobierania danych ze stron internetowych używany przez MarketPortal.pl». Значит, marketportal сам парсит сайты kantorów, и **«Ostatnia aktualizacja kursów» — время их парсинга** (подтверждено регламентом);
+- контакт: kontakt@marketportal.pl.
+- robots.txt: `Disallow:` пусто. Футер: «Copyright © 2026: MarketPortal.pl».
+- Вывод: юридически серая зона, явного запрета нет. По-хорошему стоит написать на kontakt@ (как и в zlata) и ставить атрибуцию «Kursy: MarketPortal.pl» со ссылкой. Отдельный нюанс: курсы фактически принадлежат kantorom, marketportal их только агрегирует.
+
+**Структура страницы** `https://marketportal.pl/kantory/kursy-walut/warszawa/<eur|usd|gbp|chf>` (около 222 КБ, всё в серверном HTML):
+- Две вкладки: `<div class="tab-pane ..." id="detail-quotes">` («Kursy detaliczne») и `<div class="tab-pane ..." id="wholesale-quotes">` («Kursy hurtowe»). Внутри каждой — `<table>` с колонками `Kantor | EUR Kupno | EUR Sprzedaż | EUR Spread | Mapa | Dane`.
+- Разделители районов: `<tr class="quotes-city"><td colspan="6"><strong>Śródmieście</strong></td></tr>`.
+- Строка kantoru:
+  - `<td><a href="/kantor/<slug>">ИМЯ</a></td>` — имя и ссылка на страницу kantoru на marketportal;
+  - `<td>4,3100</td><td>4,4400</td>` — покупка и продажа (десятичная запятая);
+  - `<td>13 gr / 3,02%</td>` — спред;
+  - `<td data-eoid="421" data-name="ИМЯ" data-lat="52,244059000000000" data-lng="20,991130000000000" ...>` — **ID и координаты** (с запятой); внутри `<div class="d-none" id="hAddress_421">Warszawa - Śródmieście#Jana Pawła II 45a/47a</div>` — район и адрес через `#`;
+  - `<div id="popover-content_421" class="d-none"><ul>`:
+    - `<li><strong>Warszawa - Śródmieście</strong></li><li>адрес</li>`;
+    - `<li>Telefon: …</li>` (0..N штук);
+    - `<ul class="list-unstyled opening-hours"><li>Poniedziałek <span>10:00-17:00</span></li> … <li>Niedziela <span>Zamknięte</span></li></ul>` — **часы по дням** (у сегодняшнего дня `class="today"`; в HTML мусор `<li ">`, так что парсер должен быть терпимым);
+    - `<a href="https://borcash.pl/" target="_blank">Strona internetowa kantoru</a>` — **сайт kantoru**;
+    - иногда `<span><b>Informacja o kursach hurtowych: </b>Kursy hurtowe obowiązują dla transakcji powyżej 3000 zł.</span>` — **порог опта**;
+    - `<p><b>Ostatnia aktualizacja kursów</b>: </p><span>2026-10-08 18:13</span>` — **timestamp** (местное время, без пояса).
+- Курсы **по каждому kantorowi**, у каждой строки свои значения. Но у сетей значения совпадают по точкам: Redar ×3 = 4,36/4,40, K&K I и II = 4,17/4,30 (у K&K I и II ещё и одинаковые координаты). Похоже, курс сети снимается с одной страницы (догадка). При показе «лучший курс» такие точки не дубли, это разные кассы.
+- Измерено: EUR — detal 31 строка, hurt 39, в обеих вкладках 16 → **54 уникальных eoid**. USD — detal 32, hurt 39 → **52 уникальных**. Набор почти тот же: 3 точки есть только в EUR, 1 — только в USD. Все timestamps 18:12–18:15 сегодня.
+- **Другие города:** в `<select id="ddlCity">` 142 города со slug в `data-val` (`krakow`, `wroclaw`, `gdansk`, `poznan`, `lodz`, `warszawa`…), в `<select id="ddlCurrency">` — весь ISO-список. Шаблон `/kantory/kursy-walut/<city-slug>/<cur>`, вероятно, работает и для Кракова, но **сама страница Кракова не запрашивалась** (лимит запросов) → догадка высокой уверенности.
+
+## R2.2. quantor.pl
+
+**Ответ `GET /rates/getRates?symbol=EUR&city=warszawa&voivodeship=mazowieckie&type=detal&orderby=opinia&order=desc&transact=kupno&page=1&limit=50`**: HTTP 200, `content-type: text/html`, **7 КБ HTML-фрагмента, не JSON**. За Cloudflare (`server: cloudflare`, `cf-ray …-WAW`), но для нашего UA челленджа не было.
+- Структура: `<div id="table"><table>`, заголовки «RANKING KANTORÓW - WARSZAWA» (первая группа с бейджем «OTWARTE TERAZ», вторая — остальные), строки `<tr id="<hash>-0-" onmouseover="...controller.addCantorToMap(52.13955, 21.05880)">`.
+- Поля в строке: **координаты** (в `addCantorToMap(lat, lng)`), имя/бренд (`<strong>ZAWI$ZA</strong>`), название места (`<span>Galeria Ursynów</span>`), **адрес** (`<u>al. Komisji Edukacji Narodowej 36/30</u>`) со ссылкой `./kantor/warszawa-<slug>.html`, статус открытия в tooltip («Dziś otwarty do godz. 20:00» / «W tej chwili zamknięty»), **курс** `<h5>4.3200</h5>` (точка, только одна сторона — `transact=kupno`), **свежесть только относительная** в tooltip («27 minut temu», «1 dni temu»), сумма в PLN за `exchangeAmount` (998 PLN), значок доверия «zaufany / N rezerwacji».
+- **Строк всего 2**, хотя `limit=50`: Galeria Ursynów (курс «1 dni temu») и Zawisza, al. Jerozolimskie 60B (27 минут назад). То есть **свежих сегодня — 1**. Возможно, без `exchangeAmount`/`onlyCard` ответ урезан (догадка), дальше не проверяли.
+- Абсолютного timestamp нет, второй стороны курса нет (нужен второй запрос с `transact=sprzedaz`).
+
+**Регламент** (`/serwis/regulamin.html`, оператор Quantor Sp. z o.o., Wrocław), §4: «Zabrania się kopiowania, rozpowszechniania i wykorzystywania poza Serwisem treści… Publikowanie i wykorzystywanie całości lub części zestawień prezentowanych w Serwisie wymaga zgody Administratora». §2: основное назначение — просмотр в браузере, «zabrania się użytkowania Serwisu w sposób niezgodny z jego podstawowym wykorzystaniem».
+→ **Без письменного согласия использовать нельзя.** Учитывая, что даёт 1–2 точки, — **исключить**.
+
+## R2.3. exg.pl
+
+- robots.txt: `exg.pl` → 301 на `www.exg.pl`, там `User-agent: * / Allow: /`, `Sitemap: https://www.exg.pl/sitemap.xml`. Сайт без Cloudflare (Apache).
+- **11 страниц филиалов в Варшаве** (каноничный хост `www.`, без `www.` отдаёт 302):
+  1. https://www.exg.pl/kantory/kantor/warszawa/atrium-targowek/ (сейчас называется «G-City Targówek», ul. Głębocka 15)
+  2. https://www.exg.pl/kantory/kantor/warszawa/atrium-targowek-2-kasa
+  3. https://www.exg.pl/kantory/kantor/warszawa/atrium-targowek-carrefour
+  4. https://www.exg.pl/kantory/kantor/warszawa/galeria-mlociny-1
+  5. https://www.exg.pl/kantory/kantor/warszawa/galeria-mlociny-2
+  6. https://www.exg.pl/kantory/kantor/warszawa/galeria-polnocna (Światowida 17)
+  7. https://www.exg.pl/kantory/kantor/warszawa/galeria-polnocna-pietro-0
+  8. https://www.exg.pl/kantory/kantor/warszawa/galeria-rembielinska (на странице «Renova Rembielińska», ul. Rembielińska 20)
+  9. https://www.exg.pl/kantory/kantor/warszawa/promenada
+  10. https://www.exg.pl/kantory/kantor/warszawa/sadyba-best-mall
+  11. https://www.exg.pl/kantory/kantor/warszawa/tesco-gorczewska-bemowo
+- **Свежесть:** G-City Targówek — «Dane kursów z: 2026-10-08 - 18:30» (запрос в 18:32), Galeria Północna — «2026-10-08 - 18:09» (то есть дата 29.09 из поиска устарела). В раунде 1 Sadyba — 18:16 сегодня. **3 из 3 проверенных филиалов — сегодня.** Остальные 8 не проверялись.
+- **HTML курсов:** блоки `<div class="pack ...">` с `<h2 class="pack-name">` «Hurtowe Kursy Walut» / «Aktualny kurs walut» / «Aktualny kurs złota». Под заголовком `<div class="pack-inf"> Dane kursów z: YYYY-MM-DD - HH:MM</div>` и для опта `<div class="pack-inf"> Hurtowe stawki obowiązują od 1000 jednostek walut obcych</div>`. Таблица на div-ах: `<div class="table rates">` → `<div class="tbody">` → `<div class="tr">` с 4 `<div class="td">`: (флаг + `<b class="rates-name">EUR - HURT <small>…</small></b>`), `EUR`, `4,3600` (kupno), `4,4100` (sprzedaż). У опта суффикс « - HURT» в имени.
+- **Адрес/телефон/часы:** `<p class="fs-4">… <b class="c-2">Adres:</b><br> ul. Głębocka 15<br> Warszawa 03-287<br> tel.: <b>+ 48 22 313 12 07</b>` и `<b class="c-2">Godziny otwarcia:</b><br> pn-pt: <strong>9:00 - 21:00</strong><br> sob: <strong>…</strong><br> nd: <strong>10:00 - 20:00 (handlowe)</strong>`. Координат нет, только iframe Google Maps по адресу, так что координаты брать из OSM или геокодировать. Внизу блок «branches» — 10 других филиалов (`branches-name`, адрес, телефон, часы), то есть **одна страница даёт адреса и часы всех 11**, но курсы только своего филиала.
+- **Регламент/ToS:** ссылок на регламент, политику или terms на странице филиала нет, найти не удалось. Ограничений не видно, robots разрешает.
+
+## R2.4. kantorymapa.pl и OpenStreetMap
+
+**Откуда список kantorymapa.** На странице прямо сказано: «Dane kantorów pochodzą z OpenStreetMap, map Google i publicznych katalogów firm». Во встроенных данных Next.js (RSC) у каждой точки есть `source` и `osmId`:
+| source | точек | пример osmId |
+|---|---|---|
+| `osm` | 123 | `node/319423954`, `way/…` |
+| `google` | 72 | `gmaps:0x…:0x…` |
+| `panoramafirm` | 27 | `katalog…` |
+| `pkt` | 27 | `katalog…` |
+| **итого** | **249** | |
+Реестра NBP/KNF среди источников нет. Поле `zaktualizowano` — 2026-08 (134 записи), сама страница статична (`last-modified: 2026-09-17`, LiteSpeed/Hostinger).
+
+**Лицензия/условия:** регламента/ToS нет, есть только `/polityka-prywatnosci/` и `/kontakt/` (на `/kontakt/` указан email для рекламы и поправок, без условий использования). В футере «© 2026 Kantorymapa.pl · Wszystkie prawa zastrzeżone», «Mapa: OpenStreetMap, CartoDB». Атрибуции ODbL на данные почти нет («Dane: OpenStreetMap» в отдельных местах). То есть:
+- 123 OSM-записи по сути под ODbL (их можно брать **из OSM напрямую**);
+- 72 записи, извлечённые из Google Maps, — Google ToS запрещает такое извлечение и повторное использование; брать их от третьей стороны тоже плохо;
+- 54 записи из panoramafirm/pkt.pl — каталожные базы, у них есть право sui generis на базу данных;
+- остальное «все права защищены». **Копировать список kantorymapa юридически нечисто** (догадка юридического характера, но обоснованная).
+
+**JSON-LD на `/kantor/warszawa/`** (`ItemList`, 249 `ListItem`), у `item` (`@type: [FinancialService, LocalBusiness]`):
+- `name` — 249; `url` — 249, но это **ссылка на страницу kantorymapa**, а не сайт kantoru;
+- `address` (`PostalAddress`: `streetAddress`, `addressLocality`, `addressRegion`, `addressCountry`) — 249;
+- `geo` (`GeoCoordinates`: `latitude`, `longitude`) — 249;
+- `telephone` — 169; `openingHoursSpecification` (`dayOfWeek`/`opens`/`closes`) — 149; строка `openingHours` — 6;
+- **сайта kantoru (`sameAs`) в JSON-LD нет.** Он есть только во встроенных RSC-данных: `{"osmId","slug","miasto","name","lat","lng","address","phone","website","hours","operator","source","googleId","zaktualizowano"}`. **`website` не null у 111 из 249** (osm 68, google 43). Больше всего ссылок у loombard.pl (12), exg.pl (6), kantorcapital.pl (5), tavex.pl (4).
+
+**OpenStreetMap (Overpass, 1 запрос, `area(3600336075)` = граница Варшавы, `nwr[amenity=bureau_de_change]`, данные на 2026-10-08T16:31Z):**
+- **141 объект** (132 node, 9 way); `name` — 101, `opening_hours` — 92, `addr:street` — 92, `addr:housenumber` — 91, **`website`/`contact:website` — 22**, `phone`/`contact:phone` — 16, `check_date` — 109.
+- Все 141 OSM-точки есть в kantorymapa (в пределах 30 м) → kantorymapa = OSM + 108 точек из Google и каталогов. У kantorymapa сайтов больше (68 против 22 на тех же OSM-точках), их явно дополнили из Google (догадка).
+- Совпадение с точками marketportal (55 уникальных eoid EUR∪USD) по расстоянию: в пределах 100 м в kantorymapa — 45/55, в OSM — 39/55 (в пределах 50 м — 34 и 32).
+
+**Рекомендация по мастер-списку: OSM напрямую, не kantorymapa.**
+- OSM: открытая лицензия ODbL. Нужно: атрибуция «© OpenStreetMap contributors» со ссылкой на openstreetmap.org/copyright на карте или в приложении. Если **публично распространять** производную базу (OSM + свои данные, слитые в одну таблицу), share-alike требует отдать её под ODbL. Для показа на карте (Produced Work) достаточно атрибуции. Для личного проекта это не проблема; чтобы не было вопросов, свои данные (курсы) лучше хранить отдельной таблицей и связывать по id (догадка-интерпретация ODbL, не юридическая консультация).
+- Точки с курсами в любом случае приходят со своими координатами от marketportal/kantor.live/exg. OSM нужен только для точек «без курса онлайн» (~100+) и чтобы дополнять часы.
+- kantorymapa даст +108 точек и больше сайтов, но с нечистой лицензией (Google/каталоги, «wszelkie prawa zastrzeżone»). Если они очень нужны — только с письменного согласия владельца (email на /kontakt/). Иначе использовать kantorymapa максимум как ручную подсказку для правок в самом OSM (вносить в OSM данные из Google **нельзя**, только проверенные лично).
+- «Обе» (OSM + kantorymapa) — не рекомендую: лицензионный риск ради точек без курсов.
+
+## R2.5. marketportal и боты
+
+- Ответы `/kursy-walut/warszawa/eur` и `/usd` на наш бот-UA: **HTTP 200, полный HTML (222 КБ)**, без челленджа. В заголовках **нет Cloudflare** (`server` не указан, нет `cf-ray`/`cf-cache-status`), есть HSTS, `x-frame-options: deny`. Похоже на собственный хостинг/IIS-подобный стек (догадка).
+- Запросы шли с домашнего IP. С IP дата-центра (Vercel/GitHub Actions) в этом раунде **не проверяли**. По раунду 1 главная отдаётся серверам, и признаков Cloudflare или WAF нет, так что, скорее всего, будет работать (догадка).
+
+## R2.6. Черновик письма владельцу zlata.ws (НЕ отправлено)
+
+Канал: форма «Kontakt» на zlata.ws (email на сайте не найден).
+
+**Po polsku:**
+> Temat: Prośba o zgodę na niekomercyjne pobieranie kursów kantorów
+>
+> Dzień dobry,
+>
+> tworzę prywatną, niekomercyjną aplikację webową (PWA) z mapą kantorów, z której korzystam sama i ewentualnie kilka znajomych osób. Nie ma w niej reklam ani płatnych funkcji. Kod jest publiczny: https://github.com/SofiyaStr-89/exchange-tracker
+>
+> Chciałabym zapytać o zgodę na to, aby mój bot odczytywał stronę https://zlata.ws/pl/kantory/<miasto>/ (na początek tylko Warszawa) **nie częściej niż raz na 15 minut**. Bot przedstawia się jako:
+> `ExchangeMapBot/0.1 (personal non-commercial project; https://github.com/SofiyaStr-89/exchange-tracker)`
+> W aplikacji przy każdym kursie podam źródło „zlata.ws” z linkiem do Państwa strony.
+>
+> Jeśli wolą Państwo inny sposób (np. plik JSON/XML, inną częstotliwość albo konkretną godzinę), chętnie się dostosuję. Jeśli się Państwo nie zgadzają, oczywiście uszanuję tę decyzję i nie będę pobierać danych.
+>
+> Z góry dziękuję za odpowiedź i pozdrawiam serdecznie,
+> Sofiya
+
+**По-русски (перевод):**
+> Тема: Просьба о разрешении на некоммерческое чтение курсов обменников
+>
+> Здравствуйте!
+>
+> Я делаю личное некоммерческое веб-приложение (PWA) с картой обменников, которым пользуюсь сама и, возможно, несколько знакомых. В нём нет рекламы и платных функций. Код открыт: https://github.com/SofiyaStr-89/exchange-tracker
+>
+> Хочу попросить разрешения, чтобы мой бот читал страницу https://zlata.ws/pl/kantory/<город>/ (для начала только Варшаву) **не чаще одного раза в 15 минут**. Бот представляется как:
+> `ExchangeMapBot/0.1 (personal non-commercial project; https://github.com/SofiyaStr-89/exchange-tracker)`
+> В приложении у каждого курса будет указан источник «zlata.ws» со ссылкой на ваш сайт.
+>
+> Если вам удобнее другой способ (например, JSON/XML-файл, другая частота или конкретное время), я с радостью подстроюсь. Если вы против, я, конечно, уважаю это решение и не буду забирать данные.
+>
+> Заранее спасибо за ответ!
+> София
+
+(Похожее письмо имеет смысл отправить и на kontakt@marketportal.pl: явного запрета там нет, но согласие снимает риск.)
+
+## R2.7. Итоговое решение (обновление п. 7 раунда 1)
+
+| Источник | Решение | Почему |
+|---|---|---|
+| **marketportal.pl** `/kantory/kursy-walut/warszawa/{eur,usd,gbp,chf}` | **Внедрять первым** | 54 точки за запрос, координаты, часы, телефон, сайт, timestamp; регламент не запрещает; robots разрешает; Cloudflare нет. Атрибуция + (желательно) письмо на kontakt@ |
+| **kantor.live** | оставить (уже есть) | +4–6 точек |
+| **exg.pl** (11 страниц) | **Внедрять вторым** | 3/3 проверенных филиала свежие сегодня; robots `Allow: /`; ToS не найден; координат нет → брать из OSM или по адресу |
+| **zlata.ws** | только после ответа владельца | черновик письма выше |
+| **quantor.pl** | **Не использовать** | регламент §4 прямо требует согласия; endpoint отдал 2 точки, свежая 1 |
+| **Мастер-список** | **OSM (Overpass), 141 точка, ODbL с атрибуцией** | kantorymapa — смесь OSM + Google + каталоги, «wszelkie prawa zastrzeżone» |
