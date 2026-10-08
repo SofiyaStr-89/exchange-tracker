@@ -15,12 +15,12 @@
 
 ## Ключевые решения из спецификации
 
-- PWA (Vite + TypeScript, Leaflet + leaflet.markercluster) на Cloudflare Pages → `app/`.
-- Бэкенд: Cloudflare Worker + Cron Triggers + D1 → `worker/`. Телефон никогда не ходит к источникам курсов напрямую.
-- Таблицы D1: `exchangers`, `rates`, `city_fetches`. API: `/api/exchangers?lat&lng&radius`, `/api/exchangers/:id`, `/api/currencies?country`, `/api/health`.
-- Источники: PL — kantor.live (основной), rates.fm (доп.); BY — myfin.by (основной), API Беларусбанка и Сбера (приоритетные для своих банков). Координаты: источник → OSM Overpass → Nominatim (кэш навсегда). Каждый источник — отдельный адаптер к общей модели.
+- Стек — сервисы, где у пользователя уже есть аккаунты (как в её fin-tracker / travel-tracker): Vercel (fra1) для PWA и функций `/api/*`, Neon Postgres + Drizzle, GitHub Actions (публичный репозиторий) для сбора каждые 15 мин и еженедельной пересборки. Cloudflare не используем.
+- Структура: `app/` (PWA, Vite + TypeScript, Leaflet + leaflet.markercluster), `api/` (функции Vercel), `collector/` (сбор), общий код адаптеров. Телефон никогда не ходит к источникам курсов напрямую.
+- Таблицы: `exchangers`, `rates` (с `confirmed_at`), `city_fetches`. API: `/api/exchangers?lat&lng&radius`, `/api/exchangers/:id`, `/api/currencies?country`, `/api/health`.
+- Источники: PL — JSON карты kantor.live (основа), zlata.ws (свежесть), marketportal.pl (ширина); BY — myfin.by `/currency/<город>` (основной), API Беларусбанка и МТБанка (приоритетные для своих банков), kurs.onliner.by (координаты Минска). Сбер API и rates.fm не используем. Каждый источник — отдельный адаптер к общей модели. Правила склейки 1–8 в SPEC.md.
 - В Польше только kantory, без отделений банков.
-- Курсы хранятся как «местная валюта за 1 единицу иностранной»; 0/пусто = валюты нет.
+- Курсы хранятся как «местная валюта за 1 единицу иностранной»; 0/пусто = нет этой стороны курса (проверять покупку и продажу отдельно).
 - «Покупаю» = курс продажи обменника (sell), «Продаю» = курс покупки (buy) (FR-12).
 - Открыт/закрыт — по местному времени страны (Europe/Warsaw, Europe/Minsk), не телефона (FR-21).
 - Карта: тайлы OSM, поиск Photon (запасной Nominatim).
@@ -30,4 +30,4 @@
 ## Состояние
 
 - Шаг 1 (разведка источников): скрипт `recon/fetch.mjs`, отчёт `recon/REPORT.md`. Сырые ответы в `recon/raw/` (не в git).
-  Открытые решения по расхождениям со спецификацией — раздел «Расхождения» в отчёте; принятые решения записывать сюда.
+  Глубокий анализ источников: `reports/Источники курсов обменников Польши и Беларуси.md`. Решения по нему внесены в SPEC.md (08.10.2026).
