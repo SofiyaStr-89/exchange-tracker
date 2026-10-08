@@ -28,6 +28,8 @@ export const exchangers = pgTable(
     coordsSource: text('coords_source', { enum: ['source', 'osm', 'geocoder'] }),
     hours: jsonb('hours').$type<WeekHours>(),
     sourceIds: jsonb('source_ids').$type<Record<string, string>>().notNull().default({}),
+    phone: text('phone'),
+    website: text('website'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('exchangers_lat_lng_idx').on(t.lat, t.lng), index('exchangers_city_idx').on(t.country, t.city)],

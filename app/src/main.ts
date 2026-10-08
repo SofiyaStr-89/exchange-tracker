@@ -117,14 +117,17 @@ function renderPlates(): void {
   let shown = 0;
   for (const e of withOpen) {
     const value = rateFor(e, state.currency, state.mode);
-    if (value === null) continue; // FR-15
-    shown++;
-    const icon = L.divIcon({
-      className: 'plate-anchor',
-      html: `<div class="plate${best.has(e.id) ? ' plate-best' : ''}">${formatRate(value)}</div>`,
-      iconSize: undefined,
-    });
-    L.marker([e.lat, e.lng], { icon, title: e.name, riseOnHover: true })
+    if (value !== null) shown++;
+    // FR-15: без курса — серая точка без числа.
+    const icon =
+      value === null
+        ? L.divIcon({ className: 'dot-anchor', html: '<div class="dot-no-rate"></div>', iconSize: [16, 16] })
+        : L.divIcon({
+            className: 'plate-anchor',
+            html: `<div class="plate${best.has(e.id) ? ' plate-best' : ''}">${formatRate(value)}</div>`,
+            iconSize: undefined,
+          });
+    L.marker([e.lat, e.lng], { icon, title: e.name, riseOnHover: true, zIndexOffset: value === null ? 0 : 1000 })
       .on('click', (ev) => {
         L.DomEvent.stopPropagation(ev);
         openCard(e);

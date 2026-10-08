@@ -11,6 +11,8 @@
         "address": { "pl": "Marszałkowska 1, 00-001 Warszawa" },
         "lat": 52.23,
         "lon": 21.01,
+        "phones": ["", "22 123-45-67"],
+        "site": "https://kantor-testowy.example/",
         "schedule": [
           { "day": "mo", "begin": "09:00:00", "end": "18:00:00" },
           { "day": "tu", "begin": "09:00:00", "end": "18:00:00" },
@@ -35,6 +37,7 @@
         "name": { "pl": "Kantor Całodobowy" },
         "slug": "222222-kantor-calodobowy",
         "address": { "pl": "Dworcowa 2, 00-002 Warszawa" },
+        "site": "javascript:alert(1)",
         "lat": null,
         "lon": null,
         "schedule": [

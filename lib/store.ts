@@ -24,6 +24,8 @@ export async function saveResult(db: Db, result: AdapterResult): Promise<void> {
           address: sql`excluded.address`,
           bank: sql`excluded.bank`,
           hours: sql`excluded.hours`,
+          phone: sql`coalesce(excluded.phone, ${exchangers.phone})`,
+          website: sql`coalesce(excluded.website, ${exchangers.website})`,
           // Источник без координат не затирает найденные геокодером (правило 3).
           lat: sql`coalesce(excluded.lat, ${exchangers.lat})`,
           lng: sql`coalesce(excluded.lng, ${exchangers.lng})`,

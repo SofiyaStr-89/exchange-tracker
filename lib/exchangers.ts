@@ -71,6 +71,8 @@ export interface ExchangerOut {
   lng: number;
   distance: number;
   hours: WeekHours | null;
+  phone: string | null;
+  website: string | null;
   rates: Record<string, Omit<RateRow, 'currency'>>;
 }
 
@@ -123,6 +125,8 @@ export async function loadInBounds(
       lat: e.lat!,
       lng: e.lng!,
       hours: e.hours,
+      phone: e.phone,
+      website: e.website,
       rates: Object.fromEntries(Object.entries(merged).map(([cur, { currency: _, ...rest }]) => [cur, rest])),
     };
     return out;

@@ -5,7 +5,7 @@ import type { WeekHours } from '../db/schema.js';
 import { distanceMeters } from '../geo.js';
 import { USER_AGENT } from '../probe.js';
 import { zonedWallTimeToUtc } from '../time.js';
-import { normalizeRate, type AdapterResult, type NormalizedExchanger, type NormalizedRate } from './types.js';
+import { normalizeRate, safeWebsite, type AdapterResult, type NormalizedExchanger, type NormalizedRate } from './types.js';
 
 export const SOURCE = 'kantorlive';
 
@@ -25,6 +25,8 @@ interface KlKantor {
   lat: number | null;
   lon: number | null;
   schedule: { day: string; begin: string; end: string }[] | null;
+  phones?: string[] | null;
+  site?: string | null;
   /** Пустой массив, когда свежих курсов нет. */
   rates: { retail: Record<string, KlRate> | unknown[] };
 }
@@ -97,6 +99,8 @@ export function parseKantorLive(json: KlResponse, citySlug: string): AdapterResu
       coordsSource: hasCoords ? 'source' : null,
       hours: parseHours(k.schedule),
       sourceIds: { [SOURCE]: number },
+      phone: k.phones?.find((p) => p.trim())?.trim() ?? null,
+      website: safeWebsite(k.site),
     });
 
     if (Array.isArray(k.rates.retail)) continue; // свежих курсов нет

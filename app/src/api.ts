@@ -15,6 +15,8 @@ export interface ApiExchanger {
   lng: number;
   distance: number;
   hours: WeekHours | null;
+  phone: string | null;
+  website: string | null;
   rates: Record<string, ApiRate>;
 }
 

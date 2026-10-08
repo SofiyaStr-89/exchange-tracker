@@ -23,6 +23,11 @@ describe('parseKantorLive: обменники', () => {
     });
   });
 
+  it('телефон и сайт; сайт только http(s)', () => {
+    expect(byId['pl-warszawa-kantorlive-111111']).toMatchObject({ phone: '22 123-45-67', website: 'https://kantor-testowy.example/' });
+    expect(byId['pl-warszawa-kantorlive-222222']).toMatchObject({ phone: null, website: null });
+  });
+
   it('координаты из источника; без координат — null', () => {
     expect(byId['pl-warszawa-kantorlive-111111']).toMatchObject({ lat: 52.23, lng: 21.01, coordsSource: 'source' });
     expect(byId['pl-warszawa-kantorlive-222222']).toMatchObject({ lat: null, lng: null, coordsSource: null });

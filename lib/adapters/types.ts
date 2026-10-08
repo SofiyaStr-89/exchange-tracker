@@ -17,6 +17,20 @@ export interface NormalizedExchanger {
   /** null — часы неизвестны (FR-22). */
   hours: WeekHours | null;
   sourceIds: Record<string, string>;
+  phone: string | null;
+  /** Только http(s): адрес приходит с чужого сайта и попадает в ссылку. */
+  website: string | null;
+}
+
+/** Оставляет только http(s)-адрес сайта, иначе null. */
+export function safeWebsite(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface NormalizedRate {
