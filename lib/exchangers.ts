@@ -1,32 +1,38 @@
-// Выдача обменников вокруг точки (SPEC: «API», FR-9, правило склейки 2).
+// Выдача обменников в видимой области карты (SPEC: «API», FR-3, FR-9, правило склейки 2).
 
 import { and, between, eq, isNotNull } from 'drizzle-orm';
 import type { getDb } from './db/index.js';
 import { exchangers, rates, type WeekHours } from './db/schema.js';
+import { boundsCenter, inside, type Bounds } from './bounds.js';
 import { distanceMeters } from './geo.js';
 import { OFFICIAL_SOURCES } from './sources.js';
 
+export { boundsSize, MAX_SIDE_M, type Bounds } from './bounds.js';
+
 export const FRESH_MS = 15 * 60 * 1000;
-export const MAX_RADIUS_M = 2000;
 const NEAREST_OUTSIDE = 3;
-/** Насколько далеко искать «3 ближайших» за радиусом (FR-9). */
-const SEARCH_RADIUS_M = 20_000;
+/** Насколько далеко от центра области искать ближайшие за её пределами (FR-9). */
+const NEAREST_MAX_M = 20_000;
 
 export function isStale(fetchedAt: Date | null, now = new Date()): boolean {
   return !fetchedAt || now.getTime() - fetchedAt.getTime() > FRESH_MS;
 }
 
-export function splitByRadius<T extends { lat: number; lng: number }>(
+/** nearestFilter — какие обменники годятся в «ближайшие» (например, только с курсом нужной валюты). */
+export function splitByBounds<T extends { lat: number; lng: number }>(
   points: T[],
-  center: { lat: number; lng: number },
-  radius: number,
-): { inRadius: (T & { distance: number })[]; nearest: (T & { distance: number })[] } {
+  bounds: Bounds,
+  nearestFilter: (p: T) => boolean = () => true,
+): { inView: (T & { distance: number })[]; nearest: (T & { distance: number })[] } {
+  const center = boundsCenter(bounds);
   const sorted = points
     .map((p) => ({ ...p, distance: Math.round(distanceMeters(center, p)) }))
     .sort((a, b) => a.distance - b.distance);
   return {
-    inRadius: sorted.filter((p) => p.distance <= radius),
-    nearest: sorted.filter((p) => p.distance > radius).slice(0, NEAREST_OUTSIDE),
+    inView: sorted.filter((p) => inside(p, bounds)),
+    nearest: sorted
+      .filter((p) => !inside(p, bounds) && p.distance <= NEAREST_MAX_M && nearestFilter(p))
+      .slice(0, NEAREST_OUTSIDE),
   };
 }
 
@@ -68,13 +74,14 @@ export interface ExchangerOut {
   rates: Record<string, Omit<RateRow, 'currency'>>;
 }
 
-/** Обменники с координатами вокруг точки (прямоугольник ~20 км), с курсами, склеенными по правилу 2. */
-export async function loadNearby(
+/** Обменники в области и ближайшие к ней (FR-9), с курсами, склеенными по правилу 2. */
+export async function loadInBounds(
   db: ReturnType<typeof getDb>,
-  center: { lat: number; lng: number },
-  radius: number,
-): Promise<{ inRadius: ExchangerOut[]; nearest: ExchangerOut[] }> {
-  const dLat = SEARCH_RADIUS_M / 111_195;
+  bounds: Bounds,
+  currency: string,
+): Promise<{ inView: ExchangerOut[]; nearest: ExchangerOut[] }> {
+  const center = boundsCenter(bounds);
+  const dLat = NEAREST_MAX_M / 111_195;
   const dLng = dLat / Math.cos((center.lat * Math.PI) / 180);
   const rows = await db
     .select({ e: exchangers, r: rates })
@@ -120,5 +127,5 @@ export async function loadNearby(
     };
     return out;
   });
-  return splitByRadius(points, center, radius);
+  return splitByBounds(points, bounds, (e) => Boolean(e.rates[currency]));
 }

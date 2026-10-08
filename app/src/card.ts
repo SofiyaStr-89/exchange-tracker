@@ -9,6 +9,8 @@ import { fmt, t } from './i18n/index.js';
 
 export interface CardOptions {
   currency: string;
+  /** Расстояние до обменника и от чего оно посчитано (FR-28). */
+  distance: { meters: number; fromUser: boolean };
   onClose: () => void;
 }
 
@@ -21,7 +23,7 @@ function hoursLine(e: ApiExchanger, timeZone: string): { text: string; open: boo
   return { text, open: state.open, known: true };
 }
 
-export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, onClose }: CardOptions): void {
+export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, distance, onClose }: CardOptions): void {
   const timeZone = COUNTRY_TIME_ZONE[e.country] ?? 'Europe/Warsaw';
   const local = LOCAL_CURRENCY[e.country] ?? '';
   const rate = e.rates[currency];
@@ -56,7 +58,10 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
     el('p', {}, status, status ? document.createTextNode(' · ') : null, document.createTextNode(hours.text)),
     rate ? el('p', { className: 'muted', text: formatUpdated(rate.rateUpdatedAt ?? rate.confirmedAt, timeZone) }) : null,
     rate ? el('p', { className: 'muted' }, document.createTextNode(t.source), sourceLink) : null,
-    el('p', { className: 'muted', text: fmt(t.distance, { distance: formatDistance(e.distance) }) }),
+    el('p', {
+      className: 'muted',
+      text: fmt(distance.fromUser ? t.distance : t.distanceFromCenter, { distance: formatDistance(distance.meters) }),
+    }),
   ];
   container.replaceChildren(...parts.filter((p): p is Node => p !== null));
   container.hidden = false;

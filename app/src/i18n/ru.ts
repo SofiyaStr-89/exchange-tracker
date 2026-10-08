@@ -8,7 +8,11 @@ export const ru = {
   loading: 'Загружаем обменники…',
   refreshing: 'Обновляем курсы…',
   loadError: 'Не удалось загрузить обменники. Проверьте интернет.',
-  nothingHere: 'В радиусе {radius} нет обменников с курсом {currency}.',
+  zoomIn: 'Приблизьте карту, чтобы увидеть обменники.',
+  emptyNearest: 'Здесь обменников с курсом {currency} нет. Ближайший — {name}, {distance}.',
+  emptyFar: 'Здесь и на 20 км вокруг обменников с курсом {currency} нет. Отдалите карту или откройте другой город.',
+  showNearest: 'Показать',
+  dismiss: 'Скрыть',
   mapAttribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
   you: 'Вы здесь',
 
@@ -25,7 +29,8 @@ export const ru = {
   rateUpdatedToday: 'Курс обновлён сегодня в {time}',
   rateUpdatedOn: 'Курс обновлён {date} в {time}',
   source: 'Источник: ',
-  distance: '{distance} от точки поиска',
+  distance: '{distance} от вас',
+  distanceFromCenter: '{distance} от центра карты',
   meters: '{n} м',
   kilometers: '{n} км',
 } as const;

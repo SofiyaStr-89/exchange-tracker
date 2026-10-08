@@ -1,22 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import { citiesNear } from '../lib/cities.js';
-import { isStale, mergeRates, splitByRadius, type RateRow } from '../lib/exchangers.js';
+import { boundsSize, isStale, mergeRates, splitByBounds, type RateRow } from '../lib/exchangers.js';
 
 const center = { lat: 52.2297, lng: 21.0122 };
 const at = (dLatMeters: number, id: string) => ({ id, lat: center.lat + dLatMeters / 111_195, lng: center.lng });
 
-describe('splitByRadius', () => {
-  const points = [at(1500, 'c'), at(100, 'a'), at(450, 'b'), at(2500, 'd'), at(5000, 'e'), at(9000, 'f')];
+describe('splitByBounds', () => {
+  // Область ~1,1 км по высоте вокруг center.
+  const bounds = { south: center.lat - 0.005, north: center.lat + 0.005, west: center.lng - 0.008, east: center.lng + 0.008 };
+  const points = [at(1500, 'c'), at(100, 'a'), at(450, 'b'), at(2500, 'd'), at(5000, 'e'), at(9000, 'f'), at(30_000, 'far')];
 
-  it('в радиусе — по возрастанию расстояния, с расстоянием в метрах', () => {
-    const { inRadius } = splitByRadius(points, center, 500);
-    expect(inRadius.map((p) => p.id)).toEqual(['a', 'b']);
-    expect(inRadius[0]!.distance).toBe(100);
+  it('в области — по возрастанию расстояния от центра, с расстоянием в метрах', () => {
+    const { inView } = splitByBounds(points, bounds);
+    expect(inView.map((p) => p.id)).toEqual(['a', 'b']);
+    expect(inView[0]!.distance).toBe(100);
   });
 
-  it('за радиусом — 3 ближайших для FR-9', () => {
-    expect(splitByRadius(points, center, 500).nearest.map((p) => p.id)).toEqual(['c', 'd', 'e']);
-    expect(splitByRadius(points, center, 2000).nearest.map((p) => p.id)).toEqual(['d', 'e', 'f']);
+  it('за областью — 3 ближайших не дальше 20 км (FR-9)', () => {
+    expect(splitByBounds(points, bounds).nearest.map((p) => p.id)).toEqual(['c', 'd', 'e']);
+    const north = { south: center.lat + 0.2, north: center.lat + 0.201, west: center.lng, east: center.lng + 0.001 };
+    expect(splitByBounds(points, north).nearest.map((p) => p.id)).toEqual(['far', 'f', 'e']);
+  });
+
+  it('ближайшие — только подходящие под фильтр (с курсом нужной валюты)', () => {
+    expect(splitByBounds(points, bounds, (p) => p.id !== 'c').nearest.map((p) => p.id)).toEqual(['d', 'e', 'f']);
+  });
+});
+
+describe('boundsSize', () => {
+  it('ширина и высота области в метрах', () => {
+    const { width, height } = boundsSize({ south: 52.2, north: 52.3, west: 21.0, east: 21.1 });
+    expect(Math.round(height / 100)).toBe(111);
+    expect(Math.round(width / 100)).toBe(68);
   });
 });
 

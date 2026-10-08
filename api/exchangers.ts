@@ -1,48 +1,54 @@
-// POST /api/exchangers {lat, lng, radius} — обменники в радиусе + 3 ближайших за ним (SPEC: «API», FR-9).
+// POST /api/exchangers {bounds: {south, west, north, east}, currency} — обменники в видимой области карты
+// + 3 ближайших за её пределами с курсом этой валюты (SPEC: «API», FR-3, FR-9).
 // Координаты передаются в теле, а не в адресе: адреса запросов попадают в журнал Vercel,
-// а координаты пользователя не должны сохраняться и писаться в логи (SPEC: «Приватность»).
+// а местоположение пользователя не должно сохраняться и писаться в логи (SPEC: «Приватность»).
 
 import { waitUntil } from '@vercel/functions';
 import { citiesNear } from '../lib/cities.js';
 import { getDb } from '../lib/db/index.js';
-import { loadNearby, MAX_RADIUS_M } from '../lib/exchangers.js';
+import { boundsCenter, isTooLarge, MAX_SIDE_M, type Bounds } from '../lib/bounds.js';
+import { loadInBounds } from '../lib/exchangers.js';
 import { planRefresh, runCollects } from '../lib/refresh.js';
 
-const DEFAULT_RADIUS_M = 500;
+const isLat = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= -90 && v <= 90;
+const isLng = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= -180 && v <= 180;
 
-function parseBody(body: unknown): { lat: number; lng: number; radius: number } | null {
-  if (!body || typeof body !== 'object') return null;
-  const { lat, lng, radius = DEFAULT_RADIUS_M } = body as Record<string, unknown>;
-  if (typeof lat !== 'number' || typeof lng !== 'number' || typeof radius !== 'number') return null;
-  if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) return null;
-  if (!Number.isFinite(radius) || radius <= 0 || radius > MAX_RADIUS_M) return null;
-  return { lat, lng, radius };
+function parseBody(body: unknown): { bounds: Bounds; currency: string } | null {
+  const { bounds, currency = 'USD' } = (body ?? {}) as { bounds?: Record<string, unknown>; currency?: unknown };
+  if (typeof currency !== 'string' || !/^[A-Z]{3}$/.test(currency)) return null;
+  if (!bounds || typeof bounds !== 'object') return null;
+  const { south, west, north, east } = bounds;
+  if (!isLat(south) || !isLat(north) || !isLng(west) || !isLng(east)) return null;
+  if (south >= north || west >= east) return null;
+  const b = { south, west, north, east };
+  return isTooLarge(b) ? null : { bounds: b, currency };
 }
+
+const noStore = { 'Cache-Control': 'no-store' };
 
 export async function POST(request: Request): Promise<Response> {
   const query = parseBody(await request.json().catch(() => null));
   if (!query) {
     return Response.json(
-      { error: `в теле нужен JSON {lat, lng, radius} с radius до ${MAX_RADIUS_M} м` },
-      { status: 400, headers: { 'Cache-Control': 'no-store' } },
+      { error: `в теле нужен JSON {bounds: {south, west, north, east}, currency}, стороны не длиннее ${MAX_SIDE_M / 1000} км` },
+      { status: 400, headers: noStore },
     );
   }
-  const center = { lat: query.lat, lng: query.lng };
+  const { bounds, currency } = query;
   const db = getDb();
 
-  const plan = await planRefresh(db, citiesNear(center));
+  const plan = await planRefresh(db, citiesNear(boundsCenter(bounds)));
   if (plan.firstTime.length) await runCollects(db, plan.firstTime);
   if (plan.stale.length) waitUntil(runCollects(db, plan.stale));
 
-  const { inRadius, nearest } = await loadNearby(db, center, query.radius);
+  const { inView, nearest } = await loadInBounds(db, bounds, currency);
   return Response.json(
     {
-      radius: query.radius,
       refreshing: plan.stale.length > 0,
       dataFetchedAt: plan.firstTime.length ? new Date() : plan.oldestFetchedAt,
-      exchangers: inRadius,
+      exchangers: inView,
       nearest,
     },
-    { headers: { 'Cache-Control': 'no-store' } },
+    { headers: noStore },
   );
 }
