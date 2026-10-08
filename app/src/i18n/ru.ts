@@ -20,6 +20,7 @@ export const ru = {
   buyLabel: 'Покупаю {currency}',
   sellLabel: 'Продаю {currency}',
   noRate: 'нет курса',
+  noRateMark: '—',
   noRatePublished: 'Курс онлайн не публикуется. Уточните по телефону или на сайте обменника.',
   noRateForCurrency: 'Курса {currency} здесь нет.',
   call: 'Позвонить: ',

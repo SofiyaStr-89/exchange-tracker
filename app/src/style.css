@@ -13,7 +13,8 @@
   --info-bg: rgba(255, 255, 255, 0.95);
   --warn-bg: #fff4d6;
   --accent: #2563eb;
-  --dot-bg: #4b5563;
+  --none-bg: #6b7280;
+  --none-text: #ffffff;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -32,7 +33,7 @@
     --info-bg: rgba(27, 31, 36, 0.95);
     --warn-bg: #3a2f12;
     --accent: #60a5fa;
-    --dot-bg: #4b5563;
+    --none-bg: #6b7280;
   }
 }
 
@@ -155,22 +156,17 @@ body {
   border-top-color: var(--border);
 }
 
-/* FR-15: обменник без курса — серая точка */
-.dot-anchor {
-  background: none;
-  border: none;
+/* FR-15: обменник без курса — серая плашка с прочерком */
+.plate-none {
+  padding: 2px 7px;
+  background: var(--none-bg);
+  color: var(--none-text);
+  border-color: var(--none-bg);
+  font-size: 13px;
 }
 
-.dot-no-rate {
-  width: 16px;
-  height: 16px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  background: var(--dot-bg);
-  /* Карта всегда светлая (тайлы OSM), поэтому обводка белая и в тёмной теме. */
-  border: 3px solid #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  cursor: pointer;
+.plate-none::after {
+  border-top-color: var(--none-bg);
 }
 
 .card-no-rate {

@@ -118,15 +118,12 @@ function renderPlates(): void {
   for (const e of withOpen) {
     const value = rateFor(e, state.currency, state.mode);
     if (value !== null) shown++;
-    // FR-15: без курса — серая точка без числа.
-    const icon =
+    // FR-15: без курса — серая плашка с прочерком, чтобы было видно, что здесь обменник.
+    const plate =
       value === null
-        ? L.divIcon({ className: 'dot-anchor', html: '<div class="dot-no-rate"></div>', iconSize: [16, 16] })
-        : L.divIcon({
-            className: 'plate-anchor',
-            html: `<div class="plate${best.has(e.id) ? ' plate-best' : ''}">${formatRate(value)}</div>`,
-            iconSize: undefined,
-          });
+        ? `<div class="plate plate-none">${t.noRateMark}</div>`
+        : `<div class="plate${best.has(e.id) ? ' plate-best' : ''}">${formatRate(value)}</div>`;
+    const icon = L.divIcon({ className: 'plate-anchor', html: plate, iconSize: undefined });
     L.marker([e.lat, e.lng], { icon, title: e.name, riseOnHover: true, zIndexOffset: value === null ? 0 : 1000 })
       .on('click', (ev) => {
         L.DomEvent.stopPropagation(ev);
