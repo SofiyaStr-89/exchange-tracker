@@ -6,6 +6,7 @@ import { distanceMeters } from '../../lib/geo.js';
 import { COUNTRY_TIME_ZONE, openState } from '../../lib/hours.js';
 import { fetchExchangers, type ApiExchanger } from './api.js';
 import { renderCard } from './card.js';
+import { countryAt, currencyName, loadCurrencies, type Country } from './currencies.js';
 import { el } from './dom.js';
 import { formatDistance, formatRate } from './format.js';
 import { fmt, t } from './i18n/index.js';
@@ -29,8 +30,10 @@ type Point = { lat: number; lng: number };
 
 const state = {
   user: null as Point | null,
-  currency: 'USD',
-  mode: 'buy' as Mode,
+  // FR-13: валюта и режим запоминаются на устройстве.
+  currency: load<string>('currency', 'USD'),
+  mode: load<Mode>('mode', 'buy') === 'sell' ? ('sell' as Mode) : ('buy' as Mode),
+  country: 'PL' as Country,
   exchangers: [] as ApiExchanger[],
   nearest: [] as ApiExchanger[],
 };
@@ -39,10 +42,25 @@ document.title = t.appTitle;
 const app = document.querySelector<HTMLElement>('#app')!;
 const mapEl = el('div', { className: 'map' });
 const top = el('div', { className: 'top' });
+
+// FR-10, FR-11: переключатели валюты и режима вверху экрана.
+const currencySelect = el('select', { className: 'control-select' });
+currencySelect.setAttribute('aria-label', t.currencyLabel);
+const modeButtons = (['buy', 'sell'] as Mode[]).map((mode) => {
+  const b = el('button', { className: 'segment', text: mode === 'buy' ? t.modeBuy : t.modeSell });
+  b.type = 'button';
+  b.dataset.mode = mode;
+  return b;
+});
+const modeGroup = el('div', { className: 'segmented' }, ...modeButtons);
+modeGroup.setAttribute('role', 'group');
+modeGroup.setAttribute('aria-label', t.modeLabel);
+const controls = el('div', { className: 'controls' }, currencySelect, modeGroup);
+
 const hint = el('div', { className: 'banner banner-warn' }); // подсказка про геолокацию (FR-2)
 const notice = el('div', { className: 'banner' }); // состояние области: пусто, приблизьте…
 hint.hidden = notice.hidden = true;
-top.append(hint, notice);
+top.append(controls, hint, notice);
 const refreshBadge = el('div', { className: 'refresh-badge', text: t.refreshing });
 refreshBadge.hidden = true;
 const card = el('section', { className: 'card' });
@@ -168,7 +186,54 @@ async function loadView(attempt = 0): Promise<void> {
   }
 }
 
+function renderModeButtons(): void {
+  for (const b of modeButtons) b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode));
+}
+
+async function fillCurrencies(country: Country): Promise<void> {
+  const list = await loadCurrencies(country);
+  if (country !== state.country) return; // пока грузили, карту увели в другую страну
+  const codes = list.includes(state.currency) ? list : [state.currency, ...list];
+  currencySelect.replaceChildren(
+    ...codes.map((code) => {
+      const option = el('option', { text: `${code} — ${currencyName(code)}` });
+      option.value = code;
+      option.selected = code === state.currency;
+      return option;
+    }),
+  );
+}
+
+currencySelect.addEventListener('change', () => {
+  state.currency = currencySelect.value;
+  save('currency', state.currency);
+  closeCard();
+  renderPlates();
+  scheduleLoad(); // «ближайшие» за экраном зависят от валюты (FR-9)
+});
+
+modeGroup.addEventListener('click', (ev) => {
+  const mode = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-mode]')?.dataset.mode as Mode | undefined;
+  if (!mode || mode === state.mode) return;
+  state.mode = mode;
+  save('mode', mode);
+  renderModeButtons();
+  closeCard();
+  renderPlates(); // FR-16: лучший пересчитывается под режим
+});
+
+map.on('moveend', () => {
+  const country = countryAt(map.getCenter());
+  if (country !== state.country) {
+    state.country = country;
+    void fillCurrencies(country);
+  }
+});
+
 async function start(): Promise<void> {
+  renderModeButtons();
+  state.country = countryAt(map.getCenter());
+  void fillCurrencies(state.country);
   setNotice(t.locating);
   const position = await locate();
   if (position) {
