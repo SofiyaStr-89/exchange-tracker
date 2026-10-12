@@ -25,7 +25,6 @@ export const PROBE_TARGETS: ProbeTarget[] = [
     url: 'https://belarusbank.by/api/kursExchange?city=' + encodeURIComponent('Минск'),
     marker: /"kurs_date_time"/g,
   },
-  { source: 'mtbank', url: 'https://www.mtbank.by/currxml.php?ver=2', marker: /<department\b/g },
   { source: 'onliner', url: 'https://kurs.onliner.by/', marker: /data-latitude/g },
 ];
 
