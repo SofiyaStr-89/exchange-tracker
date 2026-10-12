@@ -8,6 +8,8 @@ import { cityFetches } from './db/schema.js';
 import { FRESH_MS } from './exchangers.js';
 
 type Db = ReturnType<typeof getDb>;
+
+const RETRY_AFTER_FAILURE_MS = 60 * 60 * 1000;
 type Job = { source: string; city: string };
 
 export interface FetchRow {
@@ -28,7 +30,14 @@ export interface RefreshPlan {
 }
 
 /** Чистое решение по строкам city_fetches; maxAgeMs — срок свежести источника. */
-export function decideRefresh(wanted: Job[], rows: FetchRow[], now: Date, maxAgeMs: (source: string) => number): RefreshPlan {
+export function decideRefresh(
+  wanted: Job[],
+  rows: FetchRow[],
+  now: Date,
+  maxAgeMs: (source: string) => number,
+  /** Основные источники ждём при первом открытии города; остальные дособираются в фоне. */
+  isPrimary: (source: string) => boolean = () => true,
+): RefreshPlan {
   const byKey = new Map(rows.map((r) => [`${r.source}|${r.city}`, r]));
   const anyData = wanted.some((w) => byKey.get(`${w.source}|${w.city}`)?.fetchedAt);
   const plan: RefreshPlan = { firstTime: [], stale: [], oldestFetchedAt: null };
@@ -36,13 +45,14 @@ export function decideRefresh(wanted: Job[], rows: FetchRow[], now: Date, maxAge
   for (const job of wanted) {
     const row = byKey.get(`${job.source}|${job.city}`);
     const age = maxAgeMs(job.source);
-    // Недавно упал — не дёргаем мёртвый сайт на каждом открытии карты.
-    const recentFailure = row?.status === 'error' && row.startedAt && now.getTime() - row.startedAt.getTime() < age;
+    // Недавно упал — не дёргаем мёртвый сайт на каждом открытии карты; но и неделю (OSM) не ждём — не дольше часа.
+    const retryAfter = Math.min(age, RETRY_AFTER_FAILURE_MS);
+    const recentFailure = row?.status === 'error' && row.startedAt && now.getTime() - row.startedAt.getTime() < retryAfter;
     if (row?.fetchedAt && job.source !== 'osm' && (!plan.oldestFetchedAt || row.fetchedAt < plan.oldestFetchedAt)) {
       plan.oldestFetchedAt = row.fetchedAt;
     }
     if (recentFailure) continue;
-    if (!row?.fetchedAt) (anyData ? plan.stale : plan.firstTime).push(job);
+    if (!row?.fetchedAt) (anyData || !isPrimary(job.source) ? plan.stale : plan.firstTime).push(job);
     else if (now.getTime() - row.fetchedAt.getTime() > age) plan.stale.push(job);
   }
   return plan;
@@ -66,7 +76,13 @@ export async function planRefresh(db: Db, cities: City[], now = new Date()): Pro
         inArray(cityFetches.city, [...new Set(wanted.map((w) => w.city))]),
       ),
     );
-  return decideRefresh(wanted, rows, now, (source) => ADAPTERS[source]?.maxAgeMs ?? FRESH_MS);
+  return decideRefresh(
+    wanted,
+    rows,
+    now,
+    (source) => ADAPTERS[source]?.maxAgeMs ?? FRESH_MS,
+    (source) => ADAPTERS[source]?.primary === true,
+  );
 }
 
 export async function runCollects(db: Db, jobs: Job[]): Promise<void> {

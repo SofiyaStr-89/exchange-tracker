@@ -46,3 +46,31 @@ describe('decideRefresh', () => {
     expect(plan.oldestFetchedAt).toEqual(min(20));
   });
 });
+
+describe('decideRefresh: повтор после сбоя', () => {
+  it('источник с недельным сроком после сбоя повторяется через час, а не через неделю', () => {
+    const weekly = (s: string) => (s === 'osm' ? 7 * 24 * 60 * 60_000 : 15 * 60_000);
+    const rows = [
+      { source: 'kantorlive', city: 'warszawa', fetchedAt: min(5), startedAt: min(5), status: 'ok' as const },
+      { source: 'osm', city: 'warszawa', fetchedAt: null, startedAt: min(61), status: 'error' as const },
+    ];
+    const plan = decideRefresh([{ source: 'kantorlive', city: 'warszawa' }, { source: 'osm', city: 'warszawa' }], rows, now, weekly);
+    expect(plan.stale).toEqual([{ source: 'osm', city: 'warszawa' }]);
+  });
+});
+
+describe('decideRefresh: первый сбор города — ждём только основные источники', () => {
+  it('основные — сразу, остальные — в фоне', () => {
+    const jobs = [
+      { source: 'kantorlive', city: 'krakow' },
+      { source: 'marketportal', city: 'krakow' },
+      { source: 'osm', city: 'Kraków' },
+    ];
+    const plan = decideRefresh(jobs, [], now, maxAge, (s) => s === 'kantorlive');
+    expect(plan.firstTime).toEqual([{ source: 'kantorlive', city: 'krakow' }]);
+    expect(plan.stale).toEqual([
+      { source: 'marketportal', city: 'krakow' },
+      { source: 'osm', city: 'Kraków' },
+    ]);
+  });
+});

@@ -1,0 +1,39 @@
+# Обслуживание данных (SPEC: «Архитектура»):
+# каждый час — координаты новых точек и часы работы новых отделений myfin (если таких нет — запросов нет);
+# раз в неделю — пересборка списков обменников из OpenStreetMap.
+# Нужен секрет репозитория DATABASE_URL (Settings → Secrets and variables → Actions).
+name: Обслуживание данных
+
+on:
+  schedule:
+    - cron: '17 * * * *' # каждый час
+    - cron: '40 2 * * 1' # понедельник 02:40 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Еженедельно — списки из OpenStreetMap
+        if: github.event.schedule == '40 2 * * 1' || github.event_name == 'workflow_dispatch'
+        run: npm run weekly
+      - name: Координаты новых точек
+        run: npm run geocode
+      - name: Часы работы новых отделений myfin (не больше 150 страниц за запуск)
+        run: npm run myfin-details -- 150

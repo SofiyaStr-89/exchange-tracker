@@ -20,7 +20,9 @@
     "try-parse": "tsx collector/try-parse.ts",
     "dupes": "tsx --env-file-if-exists=.env.local collector/dupes.ts",
     "sanitize-db": "tsx --env-file-if-exists=.env.local collector/sanitize-db.ts",
-    "myfin-details": "tsx --env-file-if-exists=.env.local collector/myfin-details.ts"
+    "myfin-details": "tsx --env-file-if-exists=.env.local collector/myfin-details.ts",
+    "build-cities": "tsx collector/build-cities.ts",
+    "weekly": "tsx --env-file-if-exists=.env.local collector/weekly.ts"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.22",

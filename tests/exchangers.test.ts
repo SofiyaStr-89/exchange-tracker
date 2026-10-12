@@ -78,10 +78,18 @@ describe('isStale', () => {
 });
 
 describe('citiesNear', () => {
-  it('точка в Варшаве — Варшава', () => {
+  it('точка в Варшаве — Варшава, в Кракове — Краков, в Бресте — Брест', () => {
     expect(citiesNear(center).map((c) => c.id)).toEqual(['pl-warszawa']);
+    expect(citiesNear({ lat: 50.0614, lng: 19.9366 }).map((c) => c.id)).toEqual(['pl-krakow']);
+    expect(citiesNear({ lat: 52.0976, lng: 23.7341 }).map((c) => c.id)).toEqual(['by-brest']);
   });
-  it('точка в Кракове — пока ни одного города', () => {
-    expect(citiesNear({ lat: 50.0614, lng: 19.9366 })).toEqual([]);
+  it('посреди поля — ни одного города', () => {
+    expect(citiesNear({ lat: 51.0, lng: 25.5 })).toEqual([]);
+  });
+});
+
+describe('citiesNear: ближайшие города к центру карты', () => {
+  it('только один, ближайший', () => {
+    expect(citiesNear({ lat: 52.2297, lng: 21.0122 })).toHaveLength(1);
   });
 });

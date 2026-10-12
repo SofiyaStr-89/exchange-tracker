@@ -24,10 +24,12 @@ interface Adapter {
   fetchCity: (city: string, db: Db) => Promise<AdapterResult>;
   /** Через сколько данные источника считаются устаревшими; по умолчанию 15 минут. */
   maxAgeMs?: number;
+  /** Основной источник: при первом открытии города его ждём, остальные собираются в фоне. */
+  primary?: boolean;
 }
 
 export const ADAPTERS: Record<string, Adapter> = {
-  [KANTORLIVE]: { country: 'PL', fetchCity: fetchKantorLive },
+  [KANTORLIVE]: { country: 'PL', fetchCity: fetchKantorLive, primary: true },
   [EXG]: { country: 'PL', fetchCity: fetchExg, maxAgeMs: EXG_MAX_AGE },
   [MARKETPORTAL]: { country: 'PL', fetchCity: fetchMarketportal, maxAgeMs: MARKETPORTAL_MAX_AGE },
   [SPRAWA]: { country: 'PL', fetchCity: fetchSprawa },
@@ -38,8 +40,9 @@ export const ADAPTERS: Record<string, Adapter> = {
       if (!city) throw new Error(`Нет города ${cityId}`);
       return fetchBelarusbank(city.name, city.id.replace(/^by-/, ''), db);
     },
+    primary: true,
   },
-  [MYFIN]: { country: 'BY', fetchCity: fetchMyfin },
+  [MYFIN]: { country: 'BY', fetchCity: fetchMyfin, primary: true },
   [SITE]: {
     country: 'PL',
     fetchCity: (cityId, db) => {
