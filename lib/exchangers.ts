@@ -108,7 +108,8 @@ export async function loadInBounds(
         currency: r.currency,
         buy: r.buy,
         sell: r.sell,
-        rateUpdatedAt: r.rateUpdatedAt,
+        // Сайт без времени обновления: курс стареет с момента, когда значение появилось (правило склейки 6).
+        rateUpdatedAt: r.rateUpdatedAt ?? (r.source === 'site' ? r.fetchedAt : null),
         confirmedAt: r.confirmedAt,
         source: r.source,
       });

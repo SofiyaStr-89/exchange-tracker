@@ -12,7 +12,7 @@ const SAME_ADDRESS_MAX_M = 300;
 /** Слова, которые не отличают один kantor от другого: «kantor», «całodobowy», домены, «24h». */
 const GENERIC_WORDS = new Set(['kantor', 'kantory', 'wymiany', 'walut', 'exchange', 'calodobowy', 'calodobowo', '24h', 'pl', 'com', 'eu', 'www']);
 /** Чьё название, адрес и координаты главнее при склейке: источники с курсами и проверенными адресами. */
-const SOURCE_PRIORITY = ['kantorlive', 'marketportal', 'exg', 'sprawa', 'osm'];
+const SOURCE_PRIORITY = ['kantorlive', 'marketportal', 'exg', 'sprawa', 'site', 'osm'];
 
 const plain = (s: string) =>
   s

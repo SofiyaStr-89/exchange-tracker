@@ -12,10 +12,20 @@ export interface City {
   lng: number;
   /** Источник → как город называется в этом источнике. */
   sources: Record<string, string>;
+  /** Как город пишут на сайтах (регулярные выражения): проверка, что страница про этот город. */
+  aliases: string[];
 }
 
 export const CITIES: City[] = [
-  { id: 'pl-warszawa', country: 'PL', name: 'Warszawa', lat: 52.2297, lng: 21.0122, sources: { kantorlive: 'warszawa', marketportal: 'warszawa', exg: 'warszawa', sprawa: 'warszawa', osm: 'Warszawa' } },
+  {
+    id: 'pl-warszawa',
+    country: 'PL',
+    name: 'Warszawa',
+    lat: 52.2297,
+    lng: 21.0122,
+    sources: { kantorlive: 'warszawa', marketportal: 'warszawa', exg: 'warszawa', sprawa: 'warszawa', site: 'pl-warszawa', osm: 'Warszawa' },
+    aliases: ['warszaw', 'warsaw', 'варшав'],
+  },
 ];
 
 /** Города, которые могут попасть в поиск вокруг точки: центр города не дальше 30 км. */

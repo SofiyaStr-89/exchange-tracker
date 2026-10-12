@@ -53,7 +53,8 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
   const hours = hoursLine(e, timeZone);
   const status = hours.known ? el('span', { className: hours.open ? 'status-open' : 'status-closed', text: hours.open ? t.open : t.closed }) : null;
 
-  const site = rate ? SOURCE_SITES[rate.source] : undefined;
+  const site =
+    rate?.source === 'site' && e.website ? { title: t.sourceOwnSite, url: e.website } : rate ? SOURCE_SITES[rate.source] : undefined;
   const sourceLink = site ? link(site.title, site.url) : el('span', { text: rate?.source ?? '' });
   const hasAnyRate = Object.keys(e.rates).length > 0;
 

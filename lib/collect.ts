@@ -3,15 +3,20 @@
 import { fetchExg, MAX_AGE_MS as EXG_MAX_AGE, SOURCE as EXG } from './adapters/exg.js';
 import { fetchKantorLive, SOURCE as KANTORLIVE } from './adapters/kantorlive.js';
 import { fetchMarketportal, MAX_AGE_MS as MARKETPORTAL_MAX_AGE, SOURCE as MARKETPORTAL } from './adapters/marketportal.js';
+import { collectSites, MAX_AGE_MS as SITE_MAX_AGE, SOURCE as SITE } from './adapters/site.js';
 import { fetchSprawa, SOURCE as SPRAWA } from './adapters/sprawa.js';
 import { fetchOsm, MAX_AGE_MS as OSM_MAX_AGE, SOURCE as OSM } from './adapters/osm.js';
 import type { AdapterResult, Country } from './adapters/types.js';
+import { CITIES } from './cities.js';
 import type { getDb } from './db/index.js';
 import { finishCityFetch, removeMissing, saveResult, startCityFetch } from './store.js';
 
+type Db = ReturnType<typeof getDb>;
+
 interface Adapter {
   country: Country;
-  fetchCity: (city: string) => Promise<AdapterResult>;
+  /** Сбор города по его имени в источнике; адаптерам, которым нужна база, передаётся и она. */
+  fetchCity: (city: string, db: Db) => Promise<AdapterResult>;
   /** Через сколько данные источника считаются устаревшими; по умолчанию 15 минут. */
   maxAgeMs?: number;
 }
@@ -21,6 +26,15 @@ export const ADAPTERS: Record<string, Adapter> = {
   [EXG]: { country: 'PL', fetchCity: fetchExg, maxAgeMs: EXG_MAX_AGE },
   [MARKETPORTAL]: { country: 'PL', fetchCity: fetchMarketportal, maxAgeMs: MARKETPORTAL_MAX_AGE },
   [SPRAWA]: { country: 'PL', fetchCity: fetchSprawa },
+  [SITE]: {
+    country: 'PL',
+    fetchCity: (cityId, db) => {
+      const city = CITIES.find((c) => c.id === cityId);
+      if (!city) throw new Error(`Нет города ${cityId}`);
+      return collectSites(db, city);
+    },
+    maxAgeMs: SITE_MAX_AGE,
+  },
   [OSM]: { country: 'PL', fetchCity: fetchOsm, maxAgeMs: OSM_MAX_AGE },
 };
 
@@ -29,12 +43,12 @@ export type CollectOutcome =
   | { status: 'busy' }
   | { status: 'error'; error: string };
 
-export async function collectCity(db: ReturnType<typeof getDb>, source: string, city: string): Promise<CollectOutcome> {
+export async function collectCity(db: Db, source: string, city: string): Promise<CollectOutcome> {
   const adapter = ADAPTERS[source];
   if (!adapter) throw new Error(`Неизвестный источник «${source}»`);
   if (!(await startCityFetch(db, source, adapter.country, city))) return { status: 'busy' };
   try {
-    const result = await adapter.fetchCity(city);
+    const result = await adapter.fetchCity(city, db);
     await saveResult(db, result);
     await removeMissing(db, result);
     await finishCityFetch(db, source, adapter.country, city, null);

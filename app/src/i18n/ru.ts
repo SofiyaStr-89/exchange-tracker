@@ -39,6 +39,7 @@ export const ru = {
   rateUpdatedToday: 'Курс обновлён сегодня в {time}',
   rateUpdatedOn: 'Курс обновлён {date} в {time}',
   source: 'Источник: ',
+  sourceOwnSite: 'сайт обменника',
   distance: '{distance} от вас',
   distanceFromCenter: '{distance} от центра карты',
   meters: '{n} м',
