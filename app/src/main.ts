@@ -1,6 +1,7 @@
 import 'leaflet/dist/leaflet.css';
 import './style.css';
-import L from 'leaflet';
+import L from './leaflet.js';
+import { createClusterGroup, type PlateMarker } from './clusters.js';
 import { isTooLarge, type Bounds } from '../../lib/bounds.js';
 import { distanceMeters } from '../../lib/geo.js';
 import { COUNTRY_TIME_ZONE, nextOpening, openState } from '../../lib/hours.js';
@@ -11,7 +12,7 @@ import { el } from './dom.js';
 import { formatDistance, formatOpens, formatRate, staleLabel } from './format.js';
 import { fmt, t } from './i18n/index.js';
 import { locate } from './locate.js';
-import { bestIds, rateFor, type Mode } from './rates.js';
+import { bestIds, isFresh, rateFor, type Mode } from './rates.js';
 import { load, save } from './storage.js';
 
 const WARSAW_CENTER = { lat: 52.2297, lng: 21.0122 };
@@ -102,7 +103,7 @@ const lastView = load<MapView | null>('lastMapView', null);
 const map = L.map(mapEl, { zoomControl: false }).setView(lastView ?? WARSAW_CENTER, lastView?.zoom ?? DEFAULT_ZOOM);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: t.mapAttribution }).addTo(map);
 map.attributionControl.setPrefix(false);
-const plates = L.layerGroup().addTo(map);
+const plates = createClusterGroup(() => state.mode).addTo(map);
 
 let loadTimer: ReturnType<typeof setTimeout> | undefined;
 let requestSeq = 0;
@@ -155,6 +156,7 @@ function renderPlates(): void {
   const best = bestIds(withOpen, state.currency, state.mode); // FR-16: среди открытых видимых
   let shown = 0;
   let closedWithRate = 0;
+  const markers: PlateMarker[] = [];
   for (const e of withOpen) {
     const value = rateFor(e, state.currency, state.mode);
     if (!e.open && value !== null) closedWithRate++;
@@ -177,13 +179,17 @@ function renderPlates(): void {
       html: `<div class="${classes.filter(Boolean).join(' ')}">${label}${opens}</div>`,
       iconSize: undefined,
     });
-    L.marker([e.lat, e.lng], { icon, title: e.name, riseOnHover: true, zIndexOffset: value === null || !e.open ? 0 : 1000 })
-      .on('click', (ev) => {
-        L.DomEvent.stopPropagation(ev);
-        openCard(e);
-      })
-      .addTo(plates);
+    const marker: PlateMarker = L.marker([e.lat, e.lng], { icon, title: e.name, riseOnHover: true, zIndexOffset: value === null || !e.open ? 0 : 1000 });
+    marker.on('click', (ev) => {
+      L.DomEvent.stopPropagation(ev);
+      openCard(e);
+    });
+    // FR-17: кластер показывает лучший курс только среди открытых со свежим курсом.
+    const rate = e.rates[state.currency];
+    marker.plateInfo = { eligible: value !== null && e.open && rate && isFresh(rate) ? value : null, isBest: best.has(e.id) };
+    markers.push(marker);
   }
+  plates.addLayers(markers);
   if (shown) return setNotice(null);
 
   // FR-9: всё закрыто — предложить показать закрытые.

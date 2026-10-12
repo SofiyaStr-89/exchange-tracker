@@ -9,7 +9,9 @@ import { fetchOsm, MAX_AGE_MS as OSM_MAX_AGE, SOURCE as OSM } from './adapters/o
 import type { AdapterResult, Country } from './adapters/types.js';
 import { CITIES } from './cities.js';
 import type { getDb } from './db/index.js';
-import { finishCityFetch, removeMissing, saveResult, startCityFetch } from './store.js';
+import { sanitizeRate } from './extract-rates.js';
+import { loadNbpMids } from './nbp.js';
+import { finishCityFetch, removeMissing, removeMissingRates, saveResult, startCityFetch } from './store.js';
 
 type Db = ReturnType<typeof getDb>;
 
@@ -43,14 +45,30 @@ export type CollectOutcome =
   | { status: 'busy' }
   | { status: 'error'; error: string };
 
+/** Правило склейки 7 для любого источника: неправдоподобные курсы (сверка с NBP) не записываем. */
+async function sanitize(rates: AdapterResult['rates']): Promise<AdapterResult['rates']> {
+  let mids;
+  try {
+    mids = await loadNbpMids();
+  } catch {
+    return rates; // NBP недоступен — сверить не с чем, но и терять курсы незачем
+  }
+  return rates.flatMap((r) => {
+    const clean = sanitizeRate(r.currency, r.buy, r.sell, mids);
+    return clean ? [{ ...r, ...clean }] : [];
+  });
+}
+
 export async function collectCity(db: Db, source: string, city: string): Promise<CollectOutcome> {
   const adapter = ADAPTERS[source];
   if (!adapter) throw new Error(`Неизвестный источник «${source}»`);
   if (!(await startCityFetch(db, source, adapter.country, city))) return { status: 'busy' };
   try {
-    const result = await adapter.fetchCity(city, db);
+    const raw = await adapter.fetchCity(city, db);
+    const result = { ...raw, rates: await sanitize(raw.rates) };
     await saveResult(db, result);
     await removeMissing(db, result);
+    await removeMissingRates(db, source, raw, result.rates);
     await finishCityFetch(db, source, adapter.country, city, null);
     return { status: 'ok', exchangers: result.exchangers.length, rates: result.rates.length };
   } catch (err) {

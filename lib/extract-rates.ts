@@ -7,10 +7,25 @@ import { zonedWallTimeToUtc } from './time.js';
 
 /** Основные валюты: курсы kantorów к ним близки к NBP, допуски строже. */
 const MAJOR = new Set(['USD', 'EUR', 'GBP', 'CHF']);
+
+/**
+ * Допуски относительно среднего курса NBP: покупка в [buyMin; buyMax]·NBP, продажа в [sellMin; sellMax]·NBP.
+ * Невозможно для любого источника: продажа заметно ниже NBP или покупка заметно выше (kantor в убытке).
+ * strict — для общего разборщика сайтов, где главный риск — чужая строка таблицы;
+ * loose — для структурированных данных агрегаторов: грабительский курс аэропорта реален, его надо показать.
+ */
 const LIMITS = {
-  major: { deviation: 0.07, overMid: 0.03, spread: 0.08 },
-  other: { deviation: 0.3, overMid: 0.1, spread: 0.6 },
+  strict: {
+    major: { buyMin: 0.93, buyMax: 1.03, sellMin: 0.97, sellMax: 1.07, spread: 0.08 },
+    other: { buyMin: 0.7, buyMax: 1.1, sellMin: 0.9, sellMax: 1.3, spread: 0.6 },
+  },
+  loose: {
+    major: { buyMin: 0.6, buyMax: 1.03, sellMin: 0.97, sellMax: 1.4, spread: 0.4 },
+    other: { buyMin: 0.3, buyMax: 1.1, sellMin: 0.9, sellMax: 2, spread: 1 },
+  },
 };
+type Profile = keyof typeof LIMITS;
+
 /** Сколько слов после кода валюты смотреть в поисках двух чисел. */
 const LOOKAHEAD = 14;
 const SCALES = [1, 10, 100, 1000];
@@ -48,16 +63,33 @@ const asCode = (w: string): string | null => {
   return w.length <= 7 && /^[A-Z]{3}$/.test(letters) && letters.length + 4 >= w.length ? letters : null;
 };
 
-function plausible(code: string, buy: number | null, sell: number | null, mid: number): boolean {
-  const lim = MAJOR.has(code) ? LIMITS.major : LIMITS.other;
-  const near = (v: number) => Math.abs(v - mid) / mid <= lim.deviation;
-  if (buy !== null && (!near(buy) || buy > mid * (1 + lim.overMid))) return false;
-  if (sell !== null && (!near(sell) || sell < mid * (1 - lim.overMid))) return false;
+function plausible(code: string, buy: number | null, sell: number | null, mid: number, profile: Profile = 'strict'): boolean {
+  const lim = LIMITS[profile][MAJOR.has(code) ? 'major' : 'other'];
+  if (buy !== null && (buy < mid * lim.buyMin || buy > mid * lim.buyMax)) return false;
+  if (sell !== null && (sell < mid * lim.sellMin || sell > mid * lim.sellMax)) return false;
   if (buy !== null && sell !== null) {
     if (MAJOR.has(code) ? buy >= sell : buy > sell) return false;
     if ((sell - buy) / mid > lim.spread) return false;
   }
   return buy !== null || sell !== null;
+}
+
+/**
+ * Сверка курса любого источника с NBP (правило склейки 7, мягкие допуски): продажа ниже NBP или покупка
+ * выше NBP — курс целиком null; сторона, слишком далёкая от NBP (мусор), отбрасывается. Валюту без курса NBP
+ * проверить нечем.
+ */
+export function sanitizeRate(code: string, buy: number | null, sell: number | null, mids: MidRates): SiteRate | null {
+  const mid = mids[code];
+  if (!mid) return buy === null && sell === null ? null : { buy, sell };
+  const lim = LIMITS.loose[MAJOR.has(code) ? 'major' : 'other'];
+  // Kantor в убытке — значит, таблица устаревшая или чужая: не верим ни одной стороне.
+  if ((sell !== null && sell < mid * lim.sellMin) || (buy !== null && buy > mid * lim.buyMax)) return null;
+  const b = buy !== null && plausible(code, buy, null, mid, 'loose') ? buy : null;
+  const s = sell !== null && plausible(code, null, sell, mid, 'loose') ? sell : null;
+  if (b === null && s === null) return null;
+  if (b !== null && s !== null && !plausible(code, b, s, mid, 'loose')) return null;
+  return { buy: b, sell: s };
 }
 
 /** Подбирает масштаб (за 1, 10, 100, 1000 единиц), при котором числа похожи на курс; при надобности меняет колонки местами. */

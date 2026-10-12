@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractRates, extractTimestamp } from '../lib/extract-rates.js';
+import { extractRates, extractTimestamp, sanitizeRate } from '../lib/extract-rates.js';
 
 const nbp = { USD: 3.92, EUR: 4.39, GBP: 5.18, CHF: 4.71, HUF: 0.012, JPY: 0.0247 };
 const now = new Date('2026-10-12T15:00:00Z');
@@ -89,5 +89,27 @@ describe('extractTimestamp: время обновления курсов на с
   it('нет времени или время из будущего — null', () => {
     expect(extractTimestamp('<p>Kantor zaprasza</p>', now)).toBeNull();
     expect(extractTimestamp('<p>Aktualizacja: 14.10.2026 10:00</p>', now)).toBeNull();
+  });
+});
+
+describe('sanitizeRate: сверка с NBP для любого источника (правило склейки 7)', () => {
+  it('правдоподобный курс — как есть', () => {
+    expect(sanitizeRate('USD', 3.88, 3.95, nbp)).toEqual({ buy: 3.88, sell: 3.95 });
+  });
+  it('продажа ниже NBP−3% (kantor в убытке) — устаревшая таблица, курс целиком отбрасывается', () => {
+    expect(sanitizeRate('USD', 3.58, 3.71, nbp)).toBeNull();
+    expect(sanitizeRate('USD', 3.85, 3.71, nbp)).toBeNull();
+  });
+  it('грабительский, но реальный курс (аэропорт, +10%) — остаётся', () => {
+    expect(sanitizeRate('GBP', 5.0386, 5.7139, nbp)).toEqual({ buy: 5.0386, sell: 5.7139 });
+  });
+  it('покупка выше NBP+3% невозможна — курс целиком отбрасывается', () => {
+    expect(sanitizeRate('EUR', 4.6, 4.7, nbp)).toBeNull();
+  });
+  it('мусор (в 2 раза дороже) — отбрасывается', () => {
+    expect(sanitizeRate('EUR', 4.35, 9.0, nbp)).toEqual({ buy: 4.35, sell: null });
+  });
+  it('валюты нет в справочнике — проверить нечем, оставляем', () => {
+    expect(sanitizeRate('XAU', 400, 420, nbp)).toEqual({ buy: 400, sell: 420 });
   });
 });

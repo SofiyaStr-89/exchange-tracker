@@ -1,6 +1,6 @@
 // Запись результата адаптера в базу (SPEC: «Модель данных», правила склейки 3 и 6).
 
-import { and, eq, gt, like, notInArray, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, like, notInArray, sql } from 'drizzle-orm';
 import type { getDb } from './db/index.js';
 import { cityFetches, exchangers, rates } from './db/schema.js';
 import type { AdapterResult, Country } from './adapters/types.js';
@@ -72,6 +72,27 @@ export async function removeMissing(db: Db, result: AdapterResult): Promise<numb
     removed += gone.length;
   }
   return removed;
+}
+
+/**
+ * Удаляет курсы источника, которых больше нет в его ответе (или которые не прошли сверку с NBP), —
+ * только у обменников, которые источник вернул в этом сборе. Пустой ответ ничего не трогает.
+ */
+export async function removeMissingRates(db: Db, source: string, raw: AdapterResult, kept: AdapterResult['rates']): Promise<void> {
+  const ids = [...new Set([...raw.exchangers.map((e) => e.id), ...raw.rates.map((r) => r.exchangerId)])];
+  if (!ids.length) return;
+  const keep = kept.map((r) => `${r.exchangerId}|${r.currency}`);
+  for (const part of chunks(ids)) {
+    await db
+      .delete(rates)
+      .where(
+        and(
+          eq(rates.source, source),
+          inArray(rates.exchangerId, part),
+          keep.length ? notInArray(sql`${rates.exchangerId} || '|' || ${rates.currency}`, keep) : sql`true`,
+        ),
+      );
+  }
 }
 
 const LOCK_SECONDS = 120;

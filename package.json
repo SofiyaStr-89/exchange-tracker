@@ -18,10 +18,12 @@
     "geocode": "tsx --env-file-if-exists=.env.local collector/geocode.ts",
     "stats": "tsx --env-file-if-exists=.env.local collector/stats.ts",
     "try-parse": "tsx collector/try-parse.ts",
-    "dupes": "tsx --env-file-if-exists=.env.local collector/dupes.ts"
+    "dupes": "tsx --env-file-if-exists=.env.local collector/dupes.ts",
+    "sanitize-db": "tsx --env-file-if-exists=.env.local collector/sanitize-db.ts"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.22",
+    "@types/leaflet.markercluster": "^1.5.6",
     "@types/node": "^26.6.4",
     "dotenv": "^18.0.6",
     "drizzle-kit": "^0.31.11",
@@ -34,6 +36,7 @@
     "@neondatabase/serverless": "^1.2.0",
     "@vercel/functions": "^3.9.11",
     "drizzle-orm": "^0.45.4",
-    "leaflet": "^1.9.4"
+    "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3"
   }
 }

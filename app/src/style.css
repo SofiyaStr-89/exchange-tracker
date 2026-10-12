@@ -306,6 +306,27 @@ body {
   color: var(--error);
 }
 
+/* FR-17: кластер — плашка с лучшим курсом и числом обменников */
+.plate-cluster {
+  padding-right: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cluster-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+}
+
 /* FR-16: лучший курс */
 .plate-best {
   background: var(--best-bg);
