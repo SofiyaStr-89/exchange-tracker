@@ -4,7 +4,8 @@ import { COUNTRY_TIME_ZONE, nextOpening, openState } from '../../lib/hours.js';
 import { SOURCE_SITES } from '../../lib/sources.js';
 import type { ApiExchanger } from './api.js';
 import { el } from './dom.js';
-import { formatDistance, formatOpens, formatRate, formatUpdated, LOCAL_CURRENCY } from './format.js';
+import { rateTime } from './rates.js';
+import { formatDistance, formatOpens, formatRate, formatUpdated, LOCAL_CURRENCY, staleLabel } from './format.js';
 import { fmt, t } from './i18n/index.js';
 
 export interface CardOptions {
@@ -83,7 +84,13 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
       status ? document.createTextNode(' · ') : null,
       document.createTextNode(next ? `${formatOpens(next)} · ${hours.text}` : hours.text),
     ),
-    rate ? el('p', { className: 'muted', text: formatUpdated(rate.rateUpdatedAt ?? rate.confirmedAt, timeZone) }) : null,
+    rate
+      ? el('p', {
+          // FR-24: устаревший курс в карточке выделен.
+          className: staleLabel(rate, timeZone) ? 'stale-note' : 'muted',
+          text: formatUpdated(rateTime(rate).toISOString(), timeZone),
+        })
+      : null,
     rate ? el('p', { className: 'muted' }, document.createTextNode(t.source), sourceLink) : null,
     contacts(e),
     el('p', {

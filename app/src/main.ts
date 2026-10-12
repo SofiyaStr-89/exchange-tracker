@@ -8,7 +8,7 @@ import { fetchExchangers, type ApiExchanger } from './api.js';
 import { renderCard } from './card.js';
 import { countryAt, currencyName, loadCurrencies, type Country } from './currencies.js';
 import { el } from './dom.js';
-import { formatDistance, formatOpens, formatRate } from './format.js';
+import { formatDistance, formatOpens, formatRate, staleLabel } from './format.js';
 import { fmt, t } from './i18n/index.js';
 import { locate } from './locate.js';
 import { bestIds, rateFor, type Mode } from './rates.js';
@@ -155,9 +155,16 @@ function renderPlates(): void {
     if (value !== null) shown++;
     // FR-15: без курса — серая плашка с прочерком; FR-20: закрытые — бледные с «откроется …».
     const next = e.open ? null : nextOpening(e.hours, zoneOf(e));
-    const classes = ['plate', value === null ? 'plate-none' : best.has(e.id) ? 'plate-best' : '', e.open ? '' : 'plate-closed'];
+    // FR-24: курс старше суток — с пометкой возраста, в выборе лучшего не участвует.
+    const stale = value === null ? null : staleLabel(e.rates[state.currency]!, zoneOf(e));
+    const classes = [
+      'plate',
+      value === null ? 'plate-none' : best.has(e.id) ? 'plate-best' : '',
+      stale ? 'plate-stale' : '',
+      e.open ? '' : 'plate-closed',
+    ];
     const label = value === null ? t.noRateMark : formatRate(value);
-    const opens = next ? `<small>${formatOpens(next)}</small>` : '';
+    const opens = [stale, next ? formatOpens(next) : null].filter(Boolean).map((s) => `<small>${s}</small>`).join('');
     const icon = L.divIcon({
       className: 'plate-anchor',
       html: `<div class="${classes.filter(Boolean).join(' ')}">${label}${opens}</div>`,

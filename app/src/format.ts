@@ -2,6 +2,7 @@
 
 import type { NextOpening } from '../../lib/hours.js';
 import { fmt, t } from './i18n/index.js';
+import { isFresh, rateTime, type ApiRate } from './rates.js';
 
 const rateFormat = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 export const formatRate = (value: number) => rateFormat.format(value);
@@ -37,4 +38,14 @@ export function formatOpens(next: NextOpening): string {
   if (next.inDays === 0) return fmt(t.opensToday, { time });
   if (next.inDays === 1) return fmt(t.opensTomorrow, { time });
   return fmt(t.opensOn, { day: ON_DAY[next.weekday], time });
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Пометка устаревшего курса на плашке: «курс от вчера», «курс от 12.09»; свежий — null (FR-23, FR-24). */
+export function staleLabel(r: ApiRate, timeZone: string, now = new Date()): string | null {
+  if (isFresh(r, now)) return null;
+  const day = (d: Date) => d.toLocaleDateString('ru-RU', { timeZone, day: '2-digit', month: '2-digit' });
+  const at = rateTime(r);
+  return day(at) === day(new Date(now.getTime() - DAY_MS)) ? t.rateFromYesterday : fmt(t.rateFromDate, { date: day(at) });
 }

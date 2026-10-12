@@ -49,6 +49,8 @@ export const ru = {
   todayDayOff: 'Сегодня выходной',
   hoursUnknown: 'Часы работы не указаны',
   roundTheClock: 'Сегодня круглосуточно',
+  rateFromYesterday: 'курс от вчера',
+  rateFromDate: 'курс от {date}',
   rateUpdatedToday: 'Курс обновлён сегодня в {time}',
   rateUpdatedOn: 'Курс обновлён {date} в {time}',
   source: 'Источник: ',

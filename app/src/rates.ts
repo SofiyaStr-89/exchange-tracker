@@ -21,10 +21,13 @@ export function rateFor(e: { rates: Record<string, ApiRate> }, currency: string,
   return (mode === 'buy' ? r.sell : r.buy) ?? null;
 }
 
-/** Возраст курса; у официальных API банков — от последнего подтверждения (правило склейки 6). */
+/** Время, от которого считается возраст курса; у официальных API банков — последнее подтверждение (правило склейки 6). */
+export function rateTime(r: ApiRate): Date {
+  return new Date(OFFICIAL_SOURCES.includes(r.source) ? r.confirmedAt : (r.rateUpdatedAt ?? r.confirmedAt));
+}
+
 export function rateAgeMs(r: ApiRate, now = new Date()): number {
-  const at = OFFICIAL_SOURCES.includes(r.source) ? r.confirmedAt : (r.rateUpdatedAt ?? r.confirmedAt);
-  return now.getTime() - Date.parse(at);
+  return now.getTime() - rateTime(r).getTime();
 }
 
 export const isFresh = (r: ApiRate, now = new Date()) => rateAgeMs(r, now) <= DAY_MS;

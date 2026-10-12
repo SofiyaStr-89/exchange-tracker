@@ -264,6 +264,18 @@ body {
   font-weight: 500;
 }
 
+/* FR-24: устаревший курс — пунктирная рамка и подпись возраста */
+.plate-stale {
+  text-align: center;
+  border-style: dashed;
+  border-color: var(--muted);
+  color: var(--muted);
+}
+
+.stale-note {
+  color: var(--error);
+}
+
 /* FR-16: лучший курс */
 .plate-best {
   background: var(--best-bg);
