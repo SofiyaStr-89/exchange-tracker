@@ -2,6 +2,7 @@
 
 import { fetchExg, MAX_AGE_MS as EXG_MAX_AGE, SOURCE as EXG } from './adapters/exg.js';
 import { fetchKantorLive, SOURCE as KANTORLIVE } from './adapters/kantorlive.js';
+import { fetchMyfin, SOURCE as MYFIN } from './adapters/myfin.js';
 import { fetchMarketportal, MAX_AGE_MS as MARKETPORTAL_MAX_AGE, SOURCE as MARKETPORTAL } from './adapters/marketportal.js';
 import { fetchBelarusbank, SOURCE as BELARUSBANK } from './adapters/belarusbank.js';
 import { collectSites, MAX_AGE_MS as SITE_MAX_AGE, SOURCE as SITE } from './adapters/site.js';
@@ -38,6 +39,7 @@ export const ADAPTERS: Record<string, Adapter> = {
       return fetchBelarusbank(city.name, city.id.replace(/^by-/, ''), db);
     },
   },
+  [MYFIN]: { country: 'BY', fetchCity: fetchMyfin },
   [SITE]: {
     country: 'PL',
     fetchCity: (cityId, db) => {

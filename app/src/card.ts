@@ -67,7 +67,7 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
   const parts: (Node | null)[] = [
     closeButton,
     el('h2', { text: e.name }),
-    el('p', { className: 'muted', text: e.bank ? `${e.bank} · ${e.address}` : e.address }),
+    el('p', { className: 'muted', text: e.bank && e.bank !== e.name ? `${e.bank} · ${e.address}` : e.address }),
     rate
       ? el(
           'div',

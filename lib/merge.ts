@@ -10,7 +10,10 @@ const NEAR_M = 30;
 /** Одинаковый адрес, но координаты разных источников расходятся (геокодер, вход в ТЦ). */
 const SAME_ADDRESS_MAX_M = 300;
 /** Слова, которые не отличают один kantor от другого: «kantor», «całodobowy», домены, «24h». */
-const GENERIC_WORDS = new Set(['kantor', 'kantory', 'wymiany', 'walut', 'exchange', 'calodobowy', 'calodobowo', '24h', 'pl', 'com', 'eu', 'www']);
+const GENERIC_WORDS = new Set([
+  'kantor', 'kantory', 'wymiany', 'walut', 'exchange', 'calodobowy', 'calodobowo', '24h', 'pl', 'com', 'eu', 'www',
+  'отделение', 'обменныи', 'пункт', 'цбу', 'филиал', 'by',
+]);
 /** Чьё название, адрес и координаты главнее при склейке: источники с курсами и проверенными адресами. */
 const SOURCE_PRIORITY = ['belarusbank', 'myfin', 'kantorlive', 'marketportal', 'exg', 'sprawa', 'site', 'osm'];
 
@@ -21,7 +24,8 @@ const plain = (s: string) =>
     .replace(/[̀-ͯ]/g, '')
     .replace(/ł/g, 'l');
 
-const words = (text: string) => plain(text).split(/[^a-z0-9]+/).filter((w) => w.length > 1);
+// Латиница и кириллица: названия белорусских банков без этого превращались в пустые («похожи на всё»).
+const words = (text: string) => plain(text).split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1);
 
 /** Слова названия без общих слов и без слов из адреса/города («Kantor Klonowa 22» → пусто, «Respol24h» → «respol»). */
 function nameTokens(name: string, ignore: Set<string> = new Set()): Set<string> {

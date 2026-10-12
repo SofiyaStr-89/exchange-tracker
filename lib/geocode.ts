@@ -86,3 +86,20 @@ export async function geocodeNominatim(a: PolishAddress): Promise<Point | null> 
   if (!first) return null;
   return { lat: Number(first.lat), lng: Number(first.lon) };
 }
+
+/** Белорусский адрес через публичный Nominatim (1 запрос в секунду — паузу держит вызывающий код). */
+export async function geocodeNominatimBy(address: string, city: string): Promise<Point | null> {
+  const url = new URL('https://nominatim.openstreetmap.org/search');
+  const clean = address.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+  url.searchParams.set('q', clean.includes(city) ? `${clean}, Беларусь` : `${clean}, ${city}, Беларусь`);
+  url.searchParams.set('countrycodes', 'by');
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('limit', '1');
+  const response = await fetch(url.toString(), {
+    headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'ru' },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`Nominatim: HTTP ${response.status}`);
+  const [first] = (await response.json()) as { lat: string; lon: string }[];
+  return first ? { lat: Number(first.lat), lng: Number(first.lon) } : null;
+}

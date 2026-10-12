@@ -32,7 +32,7 @@ export const CITIES: City[] = [
     name: 'Минск',
     lat: 53.9006,
     lng: 27.559,
-    sources: { belarusbank: 'by-minsk' },
+    sources: { belarusbank: 'by-minsk', myfin: 'minsk' },
     aliases: ['минск', 'minsk', 'мінск'],
   },
 ];

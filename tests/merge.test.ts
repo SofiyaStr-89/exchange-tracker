@@ -16,6 +16,11 @@ describe('similarNames', () => {
   it('общее название «Kantor» подходит к любому', () => {
     expect(similarNames('Kantor', 'Kantor Redar')).toBe(true);
   });
+  it('кириллица: разные банки — разные, «Отделение» и «ЦБУ» — общие слова', () => {
+    expect(similarNames('Технобанк', 'Отделение №510/174')).toBe(false);
+    expect(similarNames('Технобанк', 'Альфа-Банк')).toBe(false);
+    expect(similarNames('ЦБУ №501', 'Отделение №501')).toBe(true);
+  });
   it('домены, «24h» и «całodobowy» не мешают', () => {
     expect(similarNames('Kantor Respol', 'Kantor Respol24h')).toBe(true);
     expect(similarNames('Kantor.com.pl', 'Całodobowy Kantor Polres & Cris')).toBe(true);
