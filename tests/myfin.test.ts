@@ -21,7 +21,7 @@ describe('parseMyfinCity', () => {
       address: 'тр. Логойский, 10, Минск',
       lat: null,
       sourceIds: { myfin: 'alfabank-204' },
-      website: 'https://myfin.by/bank/alfabank/department/204-minsk-logoyiskiyi-trakt-10',
+      website: null,
     });
     expect(byId['by-minsk-myfin-bps-sberbank-12']!.address).toBe('пр-т Победителей, 65, пом. 3, Минск');
   });

@@ -92,7 +92,7 @@ export function parseMyfinCity(html: string, citySlug: string, now = new Date())
       hours: null,
       sourceIds: { [SOURCE]: key },
       phone: null,
-      website: `${BASE}${link[1]}`,
+      website: null, // страница отделения на myfin — не сайт обменника; источник указан в карточке отдельно
     } satisfies NormalizedExchanger);
 
     const updatedAt = timeToday(row.match(/ic-update-time[^>]*><\/i>\s*([\d:]+)/)?.[1] ?? '', now);
