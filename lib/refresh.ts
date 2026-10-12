@@ -1,31 +1,64 @@
-// Обновление «по запросу» (SPEC: «Архитектура»): что собирать сейчас, что — в фоне.
+// Обновление «по запросу» (SPEC: «Архитектура»): что собирать сейчас, что — в фоне, что пока не трогать.
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, inArray } from 'drizzle-orm';
 import type { City } from './cities.js';
 import { ADAPTERS, collectCity } from './collect.js';
 import type { getDb } from './db/index.js';
 import { cityFetches } from './db/schema.js';
-import { isStale } from './exchangers.js';
+import { FRESH_MS } from './exchangers.js';
 
 type Db = ReturnType<typeof getDb>;
+type Job = { source: string; city: string };
+
+export interface FetchRow {
+  source: string;
+  city: string;
+  fetchedAt: Date | null;
+  startedAt: Date | null;
+  status: 'ok' | 'error' | 'running';
+}
 
 export interface RefreshPlan {
-  /** Ещё ни разу не собирались — ждём сбора, иначе отдавать нечего. */
-  firstTime: { source: string; city: string }[];
-  /** Устарели — отдаём старое, собираем в фоне. */
-  stale: { source: string; city: string }[];
-  /** Время самого старого успешного сбора среди нужных источников. */
+  /** По городу ещё нет данных ни из одного источника — ждём сбора, иначе отдавать нечего. */
+  firstTime: Job[];
+  /** Устарели или ещё не собирались при уже собранном городе — отдаём что есть, собираем в фоне. */
+  stale: Job[];
+  /** Время самого старого успешного сбора среди источников курсов (не списков вроде OSM). */
   oldestFetchedAt: Date | null;
 }
 
-export async function planRefresh(db: Db, cities: City[], now = new Date()): Promise<RefreshPlan> {
-  const wanted = cities.flatMap((c) =>
-    Object.entries(c.sources).map(([source, city]) => ({ source, city, country: c.country })),
-  );
-  if (!wanted.length) return { firstTime: [], stale: [], oldestFetchedAt: null };
+/** Чистое решение по строкам city_fetches; maxAgeMs — срок свежести источника. */
+export function decideRefresh(wanted: Job[], rows: FetchRow[], now: Date, maxAgeMs: (source: string) => number): RefreshPlan {
+  const byKey = new Map(rows.map((r) => [`${r.source}|${r.city}`, r]));
+  const anyData = wanted.some((w) => byKey.get(`${w.source}|${w.city}`)?.fetchedAt);
+  const plan: RefreshPlan = { firstTime: [], stale: [], oldestFetchedAt: null };
 
+  for (const job of wanted) {
+    const row = byKey.get(`${job.source}|${job.city}`);
+    const age = maxAgeMs(job.source);
+    // Недавно упал — не дёргаем мёртвый сайт на каждом открытии карты.
+    const recentFailure = row?.status === 'error' && row.startedAt && now.getTime() - row.startedAt.getTime() < age;
+    if (row?.fetchedAt && job.source !== 'osm' && (!plan.oldestFetchedAt || row.fetchedAt < plan.oldestFetchedAt)) {
+      plan.oldestFetchedAt = row.fetchedAt;
+    }
+    if (recentFailure) continue;
+    if (!row?.fetchedAt) (anyData ? plan.stale : plan.firstTime).push(job);
+    else if (now.getTime() - row.fetchedAt.getTime() > age) plan.stale.push(job);
+  }
+  return plan;
+}
+
+export async function planRefresh(db: Db, cities: City[], now = new Date()): Promise<RefreshPlan> {
+  const wanted = cities.flatMap((c) => Object.entries(c.sources).map(([source, city]) => ({ source, city })));
+  if (!wanted.length) return { firstTime: [], stale: [], oldestFetchedAt: null };
   const rows = await db
-    .select({ source: cityFetches.source, city: cityFetches.city, fetchedAt: cityFetches.fetchedAt })
+    .select({
+      source: cityFetches.source,
+      city: cityFetches.city,
+      fetchedAt: cityFetches.fetchedAt,
+      startedAt: cityFetches.startedAt,
+      status: cityFetches.status,
+    })
     .from(cityFetches)
     .where(
       and(
@@ -33,22 +66,10 @@ export async function planRefresh(db: Db, cities: City[], now = new Date()): Pro
         inArray(cityFetches.city, [...new Set(wanted.map((w) => w.city))]),
       ),
     );
-  const fetched = new Map(rows.map((r) => [`${r.source}|${r.city}`, r.fetchedAt]));
-
-  const plan: RefreshPlan = { firstTime: [], stale: [], oldestFetchedAt: null };
-  for (const { source, city } of wanted) {
-    const at = fetched.get(`${source}|${city}`) ?? null;
-    if (!at) plan.firstTime.push({ source, city });
-    else {
-      if (isStale(at, now, ADAPTERS[source]?.maxAgeMs)) plan.stale.push({ source, city });
-      // Время данных показываем по источникам курсов, а не по редко обновляемым спискам (OSM).
-      if (source !== 'osm' && (!plan.oldestFetchedAt || at < plan.oldestFetchedAt)) plan.oldestFetchedAt = at;
-    }
-  }
-  return plan;
+  return decideRefresh(wanted, rows, now, (source) => ADAPTERS[source]?.maxAgeMs ?? FRESH_MS);
 }
 
-export async function runCollects(db: Db, jobs: { source: string; city: string }[]): Promise<void> {
+export async function runCollects(db: Db, jobs: Job[]): Promise<void> {
   for (const { source, city } of jobs) {
     const outcome = await collectCity(db, source, city);
     if (outcome.status === 'error') console.error(`сбор ${source}/${city}: ${outcome.error}`);

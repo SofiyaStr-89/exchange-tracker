@@ -6,4 +6,6 @@ export const OFFICIAL_SOURCES = ['belarusbank', 'mtbank'];
 export const SOURCE_SITES: Record<string, { title: string; url: string }> = {
   kantorlive: { title: 'kantor.live', url: 'https://kantor.live' },
   marketportal: { title: 'marketportal.pl', url: 'https://marketportal.pl/kantory' },
+  exg: { title: 'exg.pl', url: 'https://www.exg.pl' },
+  sprawa: { title: 'kantorsprawa.pl', url: 'https://kantorsprawa.pl' },
 };

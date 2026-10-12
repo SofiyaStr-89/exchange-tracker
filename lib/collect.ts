@@ -1,7 +1,9 @@
 // Сбор одного города одним адаптером: блокировка → запрос к источнику → запись → отметка в city_fetches.
 
+import { fetchExg, MAX_AGE_MS as EXG_MAX_AGE, SOURCE as EXG } from './adapters/exg.js';
 import { fetchKantorLive, SOURCE as KANTORLIVE } from './adapters/kantorlive.js';
 import { fetchMarketportal, MAX_AGE_MS as MARKETPORTAL_MAX_AGE, SOURCE as MARKETPORTAL } from './adapters/marketportal.js';
+import { fetchSprawa, SOURCE as SPRAWA } from './adapters/sprawa.js';
 import { fetchOsm, MAX_AGE_MS as OSM_MAX_AGE, SOURCE as OSM } from './adapters/osm.js';
 import type { AdapterResult, Country } from './adapters/types.js';
 import type { getDb } from './db/index.js';
@@ -16,7 +18,9 @@ interface Adapter {
 
 export const ADAPTERS: Record<string, Adapter> = {
   [KANTORLIVE]: { country: 'PL', fetchCity: fetchKantorLive },
+  [EXG]: { country: 'PL', fetchCity: fetchExg, maxAgeMs: EXG_MAX_AGE },
   [MARKETPORTAL]: { country: 'PL', fetchCity: fetchMarketportal, maxAgeMs: MARKETPORTAL_MAX_AGE },
+  [SPRAWA]: { country: 'PL', fetchCity: fetchSprawa },
   [OSM]: { country: 'PL', fetchCity: fetchOsm, maxAgeMs: OSM_MAX_AGE },
 };
 
