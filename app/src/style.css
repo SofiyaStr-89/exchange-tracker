@@ -114,14 +114,49 @@ body {
   font-weight: 600;
 }
 
-.filters {
+.bottom {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  /* над подписью © OpenStreetMap */
+  bottom: calc(26px + env(safe-area-inset-bottom));
+  z-index: 999;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  pointer-events: none;
+}
+
+.bottom > * {
   pointer-events: auto;
 }
 
+.locate {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.locate-busy svg {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
 .chip {
-  height: 32px;
+  height: 40px;
   padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -182,11 +217,6 @@ body {
 
 /* Индикатор фонового обновления курсов (SPEC: «Скорость»). */
 .refresh-badge {
-  position: absolute;
-  left: 50%;
-  bottom: calc(28px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  z-index: 999;
   padding: 6px 12px;
   border-radius: 999px;
   background: var(--info-bg);

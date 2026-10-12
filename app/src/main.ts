@@ -60,17 +60,24 @@ modeGroup.setAttribute('aria-label', t.modeLabel);
 const controls = el('div', { className: 'controls' }, currencySelect, modeGroup);
 const openOnlyButton = el('button', { className: 'chip', text: t.openOnly });
 openOnlyButton.type = 'button';
-const filters = el('div', { className: 'filters' }, openOnlyButton);
+// FR-5: «Ко мне», как в приложениях карт. Иконка — своя статичная разметка, без данных извне.
+const locateButton = el('button', { className: 'locate' });
+locateButton.type = 'button';
+locateButton.setAttribute('aria-label', t.toMe);
+locateButton.title = t.toMe;
+locateButton.innerHTML =
+  '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M21 3 3 10.5l7.2 2.3L12.5 20z" fill="currentColor"/></svg>';
 
 const hint = el('div', { className: 'banner banner-warn' }); // подсказка про геолокацию (FR-2)
 const notice = el('div', { className: 'banner' }); // состояние области: пусто, приблизьте…
 hint.hidden = notice.hidden = true;
-top.append(controls, filters, hint, notice);
+top.append(controls, hint, notice);
 const refreshBadge = el('div', { className: 'refresh-badge', text: t.refreshing });
 refreshBadge.hidden = true;
+const bottom = el('div', { className: 'bottom' }, openOnlyButton, refreshBadge, locateButton);
 const card = el('section', { className: 'card' });
 card.hidden = true;
-app.replaceChildren(mapEl, top, refreshBadge, card);
+app.replaceChildren(mapEl, top, bottom, card);
 
 function setNotice(text: string | null, action?: { label: string; onClick: () => void }): void {
   notice.replaceChildren();
@@ -263,6 +270,24 @@ map.on('moveend', () => {
   }
 });
 
+let userMarker: L.CircleMarker | null = null;
+
+function showUser(position: Point): void {
+  state.user = position;
+  if (userMarker) userMarker.setLatLng(position);
+  else userMarker = L.circleMarker(position, { radius: 7, className: 'user-dot' }).bindTooltip(t.you).addTo(map);
+}
+
+locateButton.addEventListener('click', async () => {
+  locateButton.classList.add('locate-busy');
+  const position = await locate();
+  locateButton.classList.remove('locate-busy');
+  if (!position) return showGeoHint(); // FR-2: подсказка, как включить геолокацию
+  hint.hidden = true;
+  showUser(position);
+  map.setView(position, DEFAULT_ZOOM); // moveend → подгрузка области
+});
+
 async function start(): Promise<void> {
   renderModeButtons();
   openOnlyButton.setAttribute('aria-pressed', String(state.openOnly));
@@ -271,8 +296,7 @@ async function start(): Promise<void> {
   setNotice(t.locating);
   const position = await locate();
   if (position) {
-    state.user = position;
-    L.circleMarker(position, { radius: 7, className: 'user-dot' }).bindTooltip(t.you).addTo(map);
+    showUser(position);
     setNotice(t.loading);
     map.setView(position, DEFAULT_ZOOM); // moveend → подгрузка
   } else {

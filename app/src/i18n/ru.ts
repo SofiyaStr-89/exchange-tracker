@@ -8,6 +8,7 @@ export const ru = {
   modeSell: 'Продаю',
   modeLabel: 'Что делаю',
   openOnly: 'Только открытые',
+  toMe: 'Ко мне',
   opensToday: 'откроется в {time}',
   opensTomorrow: 'откроется завтра в {time}',
   opensOn: 'откроется {day} в {time}',
