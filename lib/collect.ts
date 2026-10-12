@@ -3,6 +3,7 @@
 import { fetchExg, MAX_AGE_MS as EXG_MAX_AGE, SOURCE as EXG } from './adapters/exg.js';
 import { fetchKantorLive, SOURCE as KANTORLIVE } from './adapters/kantorlive.js';
 import { fetchMarketportal, MAX_AGE_MS as MARKETPORTAL_MAX_AGE, SOURCE as MARKETPORTAL } from './adapters/marketportal.js';
+import { fetchBelarusbank, SOURCE as BELARUSBANK } from './adapters/belarusbank.js';
 import { collectSites, MAX_AGE_MS as SITE_MAX_AGE, SOURCE as SITE } from './adapters/site.js';
 import { fetchSprawa, SOURCE as SPRAWA } from './adapters/sprawa.js';
 import { fetchOsm, MAX_AGE_MS as OSM_MAX_AGE, SOURCE as OSM } from './adapters/osm.js';
@@ -11,6 +12,7 @@ import { CITIES } from './cities.js';
 import type { getDb } from './db/index.js';
 import { sanitizeRate } from './extract-rates.js';
 import { loadNbpMids } from './nbp.js';
+import { loadNbrb } from './nbrb.js';
 import { finishCityFetch, removeMissing, removeMissingRates, saveResult, startCityFetch } from './store.js';
 
 type Db = ReturnType<typeof getDb>;
@@ -28,6 +30,14 @@ export const ADAPTERS: Record<string, Adapter> = {
   [EXG]: { country: 'PL', fetchCity: fetchExg, maxAgeMs: EXG_MAX_AGE },
   [MARKETPORTAL]: { country: 'PL', fetchCity: fetchMarketportal, maxAgeMs: MARKETPORTAL_MAX_AGE },
   [SPRAWA]: { country: 'PL', fetchCity: fetchSprawa },
+  [BELARUSBANK]: {
+    country: 'BY',
+    fetchCity: (cityId, db) => {
+      const city = CITIES.find((c) => c.id === cityId);
+      if (!city) throw new Error(`Нет города ${cityId}`);
+      return fetchBelarusbank(city.name, city.id.replace(/^by-/, ''), db);
+    },
+  },
   [SITE]: {
     country: 'PL',
     fetchCity: (cityId, db) => {
@@ -45,13 +55,13 @@ export type CollectOutcome =
   | { status: 'busy' }
   | { status: 'error'; error: string };
 
-/** Правило склейки 7 для любого источника: неправдоподобные курсы (сверка с NBP) не записываем. */
-async function sanitize(rates: AdapterResult['rates']): Promise<AdapterResult['rates']> {
+/** Правило склейки 7 для любого источника: неправдоподобные курсы не записываем. Польша — NBP, Беларусь — НБРБ. */
+async function sanitize(rates: AdapterResult['rates'], country: Country): Promise<AdapterResult['rates']> {
   let mids;
   try {
-    mids = await loadNbpMids();
+    mids = country === 'BY' ? (await loadNbrb()).mids : await loadNbpMids();
   } catch {
-    return rates; // NBP недоступен — сверить не с чем, но и терять курсы незачем
+    return rates; // нацбанк недоступен — сверить не с чем, но и терять курсы незачем
   }
   return rates.flatMap((r) => {
     const clean = sanitizeRate(r.currency, r.buy, r.sell, mids);
@@ -65,7 +75,7 @@ export async function collectCity(db: Db, source: string, city: string): Promise
   if (!(await startCityFetch(db, source, adapter.country, city))) return { status: 'busy' };
   try {
     const raw = await adapter.fetchCity(city, db);
-    const result = { ...raw, rates: await sanitize(raw.rates) };
+    const result = { ...raw, rates: await sanitize(raw.rates, adapter.country) };
     await saveResult(db, result);
     await removeMissing(db, result);
     await removeMissingRates(db, source, raw, result.rates);

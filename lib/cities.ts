@@ -26,6 +26,15 @@ export const CITIES: City[] = [
     sources: { kantorlive: 'warszawa', marketportal: 'warszawa', exg: 'warszawa', sprawa: 'warszawa', site: 'pl-warszawa', osm: 'Warszawa' },
     aliases: ['warszaw', 'warsaw', 'варшав'],
   },
+  {
+    id: 'by-minsk',
+    country: 'BY',
+    name: 'Минск',
+    lat: 53.9006,
+    lng: 27.559,
+    sources: { belarusbank: 'by-minsk' },
+    aliases: ['минск', 'minsk', 'мінск'],
+  },
 ];
 
 /** Города, которые могут попасть в поиск вокруг точки: центр города не дальше 30 км. */
