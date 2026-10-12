@@ -6,8 +6,14 @@ const sample = JSON.parse(readFileSync(new URL('./fixtures/overpass-sample.json'
 const result = parseOverpass(sample, 'warszawa', 'Warszawa');
 
 describe('parseOverpass', () => {
+  it('закрытые навсегда (disused, opening_hours=closed, «nieczynny», прошедший end_date, заметка «zamknięty») — не попадают (FR-37)', () => {
+    const ids = result.exchangers.map((e) => e.id);
+    for (const n of ['701', '702', '703', '704', '705']) expect(ids).not.toContain(`pl-warszawa-osm-n${n}`);
+    expect(ids).toContain('pl-warszawa-osm-n706'); // закроется в будущем — пока работает
+  });
+
   it('точки и контуры (центр); без координат и криптоматы — пропускаются', () => {
-    expect(result.exchangers.map((e) => e.id)).toEqual(['pl-warszawa-osm-n101', 'pl-warszawa-osm-w202', 'pl-warszawa-osm-n606']);
+    expect(result.exchangers.map((e) => e.id)).toEqual(['pl-warszawa-osm-n101', 'pl-warszawa-osm-w202', 'pl-warszawa-osm-n606', 'pl-warszawa-osm-n706']);
     expect(result.rates).toEqual([]);
   });
 

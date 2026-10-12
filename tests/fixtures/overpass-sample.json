@@ -11,6 +11,12 @@
     { "type": "node", "id": 303, "tags": { "amenity": "bureau_de_change", "name": "Bez współrzędnych" } },
     { "type": "node", "id": 404, "lat": 52.23, "lon": 21.0, "tags": { "amenity": "bureau_de_change", "name": "Bitcomat FlyingAtom", "currency:XBT": "yes" } },
     { "type": "node", "id": 505, "lat": 52.231, "lon": 21.001, "tags": { "amenity": "bureau_de_change", "name": "Kantor Z Bitcoinem w Ofercie Nie", "currency:XBT": "yes", "vending": "currency" } },
-    { "type": "node", "id": 606, "lat": 52.232, "lon": 21.002, "tags": { "amenity": "bureau_de_change", "name": "Kantor Plus", "currency:XBT": "yes", "currency:EUR": "yes" } }
+    { "type": "node", "id": 606, "lat": 52.232, "lon": 21.002, "tags": { "amenity": "bureau_de_change", "name": "Kantor Plus", "currency:XBT": "yes", "currency:EUR": "yes" } },
+    { "type": "node", "id": 701, "lat": 52.2, "lon": 21.0, "tags": { "amenity": "bureau_de_change", "name": "Kantor A", "disused": "yes" } },
+    { "type": "node", "id": 702, "lat": 52.2, "lon": 21.0, "tags": { "amenity": "bureau_de_change", "name": "Kantor B", "opening_hours": "closed" } },
+    { "type": "node", "id": 703, "lat": 52.2, "lon": 21.0, "tags": { "amenity": "bureau_de_change", "name": "Kantor C (nieczynny)" } },
+    { "type": "node", "id": 704, "lat": 52.2, "lon": 21.0, "tags": { "amenity": "bureau_de_change", "name": "Kantor D", "end_date": "2024-05" } },
+    { "type": "node", "id": 705, "lat": 52.2, "lon": 21.0, "tags": { "amenity": "bureau_de_change", "name": "Kantor E", "note": "Lokal zamknięty, teraz kawiarnia" } },
+    { "type": "node", "id": 706, "lat": 52.2, "lon": 21.0, "tags": { "amenity": "bureau_de_change", "name": "Kantor F", "end_date": "2030-01-01" } }
   ]
 }

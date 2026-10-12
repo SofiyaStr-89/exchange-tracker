@@ -20,6 +20,23 @@ interface OsmElement {
   tags?: Record<string, string>;
 }
 
+const CLOSED_WORDS = /zamkni[ęe]t|nieczynn|zlikwidowan|closed permanently|permanently closed/i;
+
+/** Признаки «закрыт навсегда» в OSM (FR-37): такие точки на карту не попадают. */
+export function isPermanentlyClosed(tags: Record<string, string>, now = new Date()): boolean {
+  if (['disused', 'abandoned', 'demolished', 'removed'].some((k) => tags[k] === 'yes')) return true;
+  if (/^(closed|off)$/i.test(tags.opening_hours?.trim() ?? '')) return true;
+  const text = [tags.name, tags.note, tags.description, tags.fixme].filter(Boolean).join(' ');
+  if (CLOSED_WORDS.test(text)) return true;
+  // end_date: «2024», «2024-05», «2024-05-31» — дата закрытия; если уже прошла — закрыт.
+  const end = tags.end_date?.match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/);
+  if (end) {
+    const last = new Date(Date.UTC(+end[1]!, end[2] ? +end[2] : 12, end[3] ? +end[3] : 0, 23, 59));
+    if (last.getTime() < now.getTime()) return true;
+  }
+  return false;
+}
+
 const slugify = (name: string) =>
   name
     .normalize('NFD')
@@ -48,6 +65,7 @@ export function parseOverpass(json: { elements: OsmElement[] }, citySlug: string
     // Тег currency:XBT сам по себе не признак: обычные kantory тоже бывают с ним.
     const machine = tags.vending !== undefined || tags.atm === 'yes';
     if (isCryptoName(`${tags.name ?? ''} ${tags.brand ?? ''} ${tags.operator ?? ''}`) || (machine && tags['currency:XBT'] === 'yes')) continue;
+    if (isPermanentlyClosed(tags)) continue; // FR-37
     const osmId = `${el.type[0]}${el.id}`;
     exchangers.push({
       id: `pl-${citySlug}-${SOURCE}-${osmId}`,
