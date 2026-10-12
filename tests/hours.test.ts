@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WeekHours } from '../lib/db/schema.js';
-import { openState } from '../lib/hours.js';
+import { nextOpening, openState } from '../lib/hours.js';
 
 // Четверг 08.10.2026; в Варшаве UTC+2.
 const warsaw = (hhmm: string) => new Date(`2026-10-08T${hhmm}:00+02:00`);
@@ -41,5 +41,26 @@ describe('openState (FR-21, FR-22)', () => {
   it('часы неизвестны — считается открытым (FR-22)', () => {
     expect(openState(null, 'Europe/Warsaw', warsaw('03:00'))).toEqual({ open: true, known: false, today: null });
     expect(openState({ mon: ['09:00', '18:00'] }, 'Europe/Warsaw', warsaw('03:00'))).toEqual({ open: true, known: false, today: null });
+  });
+});
+
+describe('nextOpening (FR-20)', () => {
+  // Четверг 08.10.2026, Варшава.
+  it('сегодня позже', () => {
+    expect(nextOpening(weekdays, 'Europe/Warsaw', warsaw('07:30'))).toEqual({ inDays: 0, time: '09:00', weekday: 'thu' });
+  });
+
+  it('после закрытия — завтра', () => {
+    expect(nextOpening(weekdays, 'Europe/Warsaw', warsaw('19:00'))).toEqual({ inDays: 1, time: '09:00', weekday: 'fri' });
+  });
+
+  it('в пятницу вечером при выходных в субботу и воскресенье — понедельник', () => {
+    const friday = new Date('2026-10-09T20:00:00+02:00');
+    expect(nextOpening(weekdays, 'Europe/Warsaw', friday)).toEqual({ inDays: 3, time: '09:00', weekday: 'mon' });
+  });
+
+  it('часы неизвестны или ни одного рабочего дня — null', () => {
+    expect(nextOpening(null, 'Europe/Warsaw', warsaw('07:30'))).toBeNull();
+    expect(nextOpening({ mon: null, sun: null }, 'Europe/Warsaw', warsaw('07:30'))).toBeNull();
   });
 });

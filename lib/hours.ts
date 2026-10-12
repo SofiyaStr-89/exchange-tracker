@@ -47,4 +47,25 @@ export function openState(hours: WeekHours | null, timeZone: string, now = new D
   return { open, known: true, today };
 }
 
+export interface NextOpening {
+  /** 0 — сегодня, 1 — завтра, … */
+  inDays: number;
+  time: string;
+  weekday: Day;
+}
+
+/** Когда обменник откроется в следующий раз (FR-20); null — часы неизвестны или нет рабочих дней. */
+export function nextOpening(hours: WeekHours | null, timeZone: string, now = new Date()): NextOpening | null {
+  if (!hours) return null;
+  const { day, minutes } = localNow(timeZone, now);
+  for (let inDays = 0; inDays < 8; inDays++) {
+    const weekday = DAYS[(day + inDays) % 7]!;
+    const today = hours[weekday];
+    if (!today) continue;
+    if (inDays === 0 && toMinutes(today[0]) <= minutes) continue;
+    return { inDays, time: today[0], weekday };
+  }
+  return null;
+}
+
 export const COUNTRY_TIME_ZONE: Record<string, string> = { PL: 'Europe/Warsaw', BY: 'Europe/Minsk' };

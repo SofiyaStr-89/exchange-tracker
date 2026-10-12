@@ -1,10 +1,10 @@
 // Карточка обменника снизу экрана (FR-28).
 
-import { COUNTRY_TIME_ZONE, openState } from '../../lib/hours.js';
+import { COUNTRY_TIME_ZONE, nextOpening, openState } from '../../lib/hours.js';
 import { SOURCE_SITES } from '../../lib/sources.js';
 import type { ApiExchanger } from './api.js';
 import { el } from './dom.js';
-import { formatDistance, formatRate, formatUpdated, LOCAL_CURRENCY } from './format.js';
+import { formatDistance, formatOpens, formatRate, formatUpdated, LOCAL_CURRENCY } from './format.js';
 import { fmt, t } from './i18n/index.js';
 
 export interface CardOptions {
@@ -51,6 +51,7 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
   const value = (v: number | null | undefined) => (v == null ? t.noRate : `${formatRate(v)} ${local}`);
 
   const hours = hoursLine(e, timeZone);
+  const next = hours.known && !hours.open ? nextOpening(e.hours, timeZone) : null;
   const status = hours.known ? el('span', { className: hours.open ? 'status-open' : 'status-closed', text: hours.open ? t.open : t.closed }) : null;
 
   const site =
@@ -75,7 +76,13 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
           el('div', {}, el('span', { className: 'muted', text: fmt(t.sellLabel, { currency }) }), el('strong', { text: value(rate.buy) })),
         )
       : el('p', { className: 'card-no-rate', text: hasAnyRate ? fmt(t.noRateForCurrency, { currency }) : t.noRatePublished }),
-    el('p', {}, status, status ? document.createTextNode(' · ') : null, document.createTextNode(hours.text)),
+    el(
+      'p',
+      {},
+      status,
+      status ? document.createTextNode(' · ') : null,
+      document.createTextNode(next ? `${formatOpens(next)} · ${hours.text}` : hours.text),
+    ),
     rate ? el('p', { className: 'muted', text: formatUpdated(rate.rateUpdatedAt ?? rate.confirmedAt, timeZone) }) : null,
     rate ? el('p', { className: 'muted' }, document.createTextNode(t.source), sourceLink) : null,
     contacts(e),

@@ -3,12 +3,12 @@ import './style.css';
 import L from 'leaflet';
 import { isTooLarge, type Bounds } from '../../lib/bounds.js';
 import { distanceMeters } from '../../lib/geo.js';
-import { COUNTRY_TIME_ZONE, openState } from '../../lib/hours.js';
+import { COUNTRY_TIME_ZONE, nextOpening, openState } from '../../lib/hours.js';
 import { fetchExchangers, type ApiExchanger } from './api.js';
 import { renderCard } from './card.js';
 import { countryAt, currencyName, loadCurrencies, type Country } from './currencies.js';
 import { el } from './dom.js';
-import { formatDistance, formatRate } from './format.js';
+import { formatDistance, formatOpens, formatRate } from './format.js';
 import { fmt, t } from './i18n/index.js';
 import { locate } from './locate.js';
 import { bestIds, rateFor, type Mode } from './rates.js';
@@ -33,6 +33,8 @@ const state = {
   // FR-13: валюта и режим запоминаются на устройстве.
   currency: load<string>('currency', 'USD'),
   mode: load<Mode>('mode', 'buy') === 'sell' ? ('sell' as Mode) : ('buy' as Mode),
+  // FR-19: по умолчанию только открытые сейчас.
+  openOnly: load<boolean>('openOnly', true) !== false,
   country: 'PL' as Country,
   exchangers: [] as ApiExchanger[],
   nearest: [] as ApiExchanger[],
@@ -56,11 +58,14 @@ const modeGroup = el('div', { className: 'segmented' }, ...modeButtons);
 modeGroup.setAttribute('role', 'group');
 modeGroup.setAttribute('aria-label', t.modeLabel);
 const controls = el('div', { className: 'controls' }, currencySelect, modeGroup);
+const openOnlyButton = el('button', { className: 'chip', text: t.openOnly });
+openOnlyButton.type = 'button';
+const filters = el('div', { className: 'filters' }, openOnlyButton);
 
 const hint = el('div', { className: 'banner banner-warn' }); // подсказка про геолокацию (FR-2)
 const notice = el('div', { className: 'banner' }); // состояние области: пусто, приблизьте…
 hint.hidden = notice.hidden = true;
-top.append(controls, hint, notice);
+top.append(controls, filters, hint, notice);
 const refreshBadge = el('div', { className: 'refresh-badge', text: t.refreshing });
 refreshBadge.hidden = true;
 const card = el('section', { className: 'card' });
@@ -125,24 +130,40 @@ function openCard(e: ApiExchanger): void {
   });
 }
 
+const zoneOf = (e: ApiExchanger) => COUNTRY_TIME_ZONE[e.country] ?? 'Europe/Warsaw';
+
+function setOpenOnly(value: boolean): void {
+  state.openOnly = value;
+  save('openOnly', value);
+  openOnlyButton.setAttribute('aria-pressed', String(value));
+  closeCard();
+  renderPlates();
+}
+
+openOnlyButton.addEventListener('click', () => setOpenOnly(!state.openOnly));
+
 function renderPlates(): void {
   plates.clearLayers();
-  const withOpen = state.exchangers.map((e) => ({
-    ...e,
-    open: openState(e.hours, COUNTRY_TIME_ZONE[e.country] ?? 'Europe/Warsaw').open,
-  }));
-  const best = bestIds(withOpen, state.currency, state.mode); // FR-16: среди видимых
+  const withOpen = state.exchangers.map((e) => ({ ...e, open: openState(e.hours, zoneOf(e)).open }));
+  const best = bestIds(withOpen, state.currency, state.mode); // FR-16: среди открытых видимых
   let shown = 0;
+  let closedWithRate = 0;
   for (const e of withOpen) {
     const value = rateFor(e, state.currency, state.mode);
+    if (!e.open && value !== null) closedWithRate++;
+    if (!e.open && state.openOnly) continue; // FR-19
     if (value !== null) shown++;
-    // FR-15: без курса — серая плашка с прочерком, чтобы было видно, что здесь обменник.
-    const plate =
-      value === null
-        ? `<div class="plate plate-none">${t.noRateMark}</div>`
-        : `<div class="plate${best.has(e.id) ? ' plate-best' : ''}">${formatRate(value)}</div>`;
-    const icon = L.divIcon({ className: 'plate-anchor', html: plate, iconSize: undefined });
-    L.marker([e.lat, e.lng], { icon, title: e.name, riseOnHover: true, zIndexOffset: value === null ? 0 : 1000 })
+    // FR-15: без курса — серая плашка с прочерком; FR-20: закрытые — бледные с «откроется …».
+    const next = e.open ? null : nextOpening(e.hours, zoneOf(e));
+    const classes = ['plate', value === null ? 'plate-none' : best.has(e.id) ? 'plate-best' : '', e.open ? '' : 'plate-closed'];
+    const label = value === null ? t.noRateMark : formatRate(value);
+    const opens = next ? `<small>${formatOpens(next)}</small>` : '';
+    const icon = L.divIcon({
+      className: 'plate-anchor',
+      html: `<div class="${classes.filter(Boolean).join(' ')}">${label}${opens}</div>`,
+      iconSize: undefined,
+    });
+    L.marker([e.lat, e.lng], { icon, title: e.name, riseOnHover: true, zIndexOffset: value === null || !e.open ? 0 : 1000 })
       .on('click', (ev) => {
         L.DomEvent.stopPropagation(ev);
         openCard(e);
@@ -151,8 +172,13 @@ function renderPlates(): void {
   }
   if (shown) return setNotice(null);
 
-  // FR-9: пусто — ближайший обменник с курсом за пределами экрана.
-  const nearest = state.nearest.filter((e) => rateFor(e, state.currency, state.mode) !== null);
+  // FR-9: всё закрыто — предложить показать закрытые.
+  if (state.openOnly && closedWithRate) return setNotice(t.allClosed, { label: t.showClosed, onClick: () => setOpenOnly(false) });
+
+  // FR-9: пусто — ближайший обменник с курсом за пределами экрана (при фильтре — открытый, если есть).
+  const withRate = state.nearest.filter((e) => rateFor(e, state.currency, state.mode) !== null);
+  const openNearest = withRate.filter((e) => openState(e.hours, zoneOf(e)).open);
+  const nearest = state.openOnly && openNearest.length ? openNearest : withRate;
   const first = nearest[0];
   if (!first) return setNotice(fmt(t.emptyFar, { currency: state.currency }));
   setNotice(fmt(t.emptyNearest, { currency: state.currency, name: first.name, distance: formatDistance(first.distance) }), {
@@ -232,6 +258,7 @@ map.on('moveend', () => {
 
 async function start(): Promise<void> {
   renderModeButtons();
+  openOnlyButton.setAttribute('aria-pressed', String(state.openOnly));
   state.country = countryAt(map.getCenter());
   void fillCurrencies(state.country);
   setNotice(t.locating);

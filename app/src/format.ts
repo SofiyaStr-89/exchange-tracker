@@ -1,5 +1,6 @@
 // Форматирование чисел, расстояний и времени для интерфейса.
 
+import type { NextOpening } from '../../lib/hours.js';
 import { fmt, t } from './i18n/index.js';
 
 const rateFormat = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
@@ -18,4 +19,22 @@ export function formatUpdated(iso: string, timeZone: string, now = new Date()): 
   const day = (d: Date) => d.toLocaleDateString('ru-RU', { timeZone, day: '2-digit', month: '2-digit' });
   const time = date.toLocaleTimeString('ru-RU', { timeZone, hour: '2-digit', minute: '2-digit' });
   return day(date) === day(now) ? fmt(t.rateUpdatedToday, { time }) : fmt(t.rateUpdatedOn, { date: day(date), time });
+}
+
+const ON_DAY: Record<NextOpening['weekday'], string> = {
+  mon: t.onMon,
+  tue: t.onTue,
+  wed: t.onWed,
+  thu: t.onThu,
+  fri: t.onFri,
+  sat: t.onSat,
+  sun: t.onSun,
+};
+
+/** «откроется в 10:00», «откроется завтра в 9:30», «откроется в понедельник в 9:00» (FR-20). */
+export function formatOpens(next: NextOpening): string {
+  const time = next.time.replace(/^0(\d)/, '$1');
+  if (next.inDays === 0) return fmt(t.opensToday, { time });
+  if (next.inDays === 1) return fmt(t.opensTomorrow, { time });
+  return fmt(t.opensOn, { day: ON_DAY[next.weekday], time });
 }
