@@ -2,6 +2,7 @@
 // курсы USD/EUR/RUB во встроенном JSON (data-branch-converter), время обновления по отделению (только ЧЧ:ММ).
 // Отделения Беларусбанка пропускаем — их точнее даёт официальный API. Координат на странице нет.
 
+import type { WeekHours } from '../db/schema.js';
 import { decodeEntities, textOf } from '../html.js';
 import { USER_AGENT } from '../probe.js';
 import { zonedWallTimeToUtc } from '../time.js';
@@ -90,7 +91,8 @@ export function parseMyfinCity(html: string, citySlug: string, now = new Date())
       lng: null,
       coordsSource: null,
       hours: null,
-      sourceIds: { [SOURCE]: key },
+      // Путь к странице отделения — для еженедельного обхода часов работы (collector/myfin-details.ts).
+      sourceIds: { [SOURCE]: key, myfin_page: link[1]! },
       phone: null,
       website: null, // страница отделения на myfin — не сайт обменника; источник указан в карточке отдельно
     } satisfies NormalizedExchanger);
@@ -112,6 +114,32 @@ export function parseMyfinCity(html: string, citySlug: string, now = new Date())
     }
   }
   return result;
+}
+
+const WEEK: (keyof WeekHours)[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+/**
+ * Страница отделения /bank/<банк>/department/<id>-<slug>: часы для частных лиц (первое data-work-schedule,
+ * пн…вс, «00:00–00:00» — выходной) и телефон. Координаты там не настоящие (центр Минска по умолчанию) — не берём.
+ */
+export function parseMyfinDepartment(html: string): { hours: WeekHours | null; phone: string | null } {
+  let hours: WeekHours | null = null;
+  const raw = html.match(/data-work-schedule='([^']*)'/)?.[1];
+  if (raw) {
+    try {
+      const days = JSON.parse(decodeEntities(raw)) as [string, string][];
+      if (Array.isArray(days) && days.length === 7) {
+        hours = {};
+        days.forEach(([open, close], i) => {
+          hours![WEEK[i]!] = open === close ? null : [open, close === '23:59' ? '24:00' : close];
+        });
+      }
+    } catch {
+      hours = null;
+    }
+  }
+  const phone = [...html.matchAll(/itemprop="telephone"[^>]*>([^<]+)</g)].map((m) => m[1]!.trim()).find((p) => p.replace(/\D/g, '').length >= 9) ?? null;
+  return { hours, phone };
 }
 
 export async function fetchMyfin(citySlug: string): Promise<AdapterResult> {

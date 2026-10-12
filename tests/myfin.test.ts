@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseMyfinCity } from '../lib/adapters/myfin.js';
+import { parseMyfinCity, parseMyfinDepartment } from '../lib/adapters/myfin.js';
 
 const html = readFileSync(new URL('./fixtures/myfin-sample.html', import.meta.url), 'utf8');
 const now = new Date('2026-10-12T16:30:00Z'); // 19:30 в Минске
@@ -20,7 +20,6 @@ describe('parseMyfinCity', () => {
       bank: 'Альфа-Банк',
       address: 'тр. Логойский, 10, Минск',
       lat: null,
-      sourceIds: { myfin: 'alfabank-204' },
       website: null,
     });
     expect(byId['by-minsk-myfin-bps-sberbank-12']!.address).toBe('пр-т Победителей, 65, пом. 3, Минск');
@@ -43,5 +42,41 @@ describe('parseMyfinCity', () => {
   it('время позже текущего — значит, вчера (правило склейки 6)', () => {
     const sber = result.rates.find((r) => r.exchangerId === 'by-minsk-myfin-bps-sberbank-12')!;
     expect(sber.rateUpdatedAt).toEqual(new Date('2026-10-11T20:50:00Z'));
+  });
+});
+
+describe('parseMyfinDepartment: часы и телефон со страницы отделения', () => {
+  const page = `<div>Частные лица: <span itemprop="name">Пн-Пт: 09:00-19:00</span></div>
+    <span data-operating-status-container="" data-work-schedule='[["09:00","19:00"],["09:00","19:00"],["09:00","19:00"],["09:00","19:00"],["09:00","19:00"],["10:00","16:00"],["00:00","00:00"]]'></span>
+    <div>Бизнес:</div><span data-work-schedule='[["09:00","17:00"],["09:00","17:00"],["09:00","17:00"],["09:00","17:00"],["09:00","16:00"],["00:00","00:00"],["00:00","00:00"]]'></span>
+    <a itemprop="telephone" href='tel:198'>198</a><a itemprop="telephone" href='tel:+375-44-733-33-32'>+375-44-733-33-32</a>`;
+
+  it('первое расписание — частные лица; «00:00–00:00» — выходной', () => {
+    expect(parseMyfinDepartment(page).hours).toEqual({
+      mon: ['09:00', '19:00'], tue: ['09:00', '19:00'], wed: ['09:00', '19:00'], thu: ['09:00', '19:00'], fri: ['09:00', '19:00'],
+      sat: ['10:00', '16:00'], sun: null,
+    });
+  });
+
+  it('круглосуточно — 00:00–24:00', () => {
+    const allDay = `<span data-work-schedule='[${Array(7).fill('["00:00","23:59"]').join(',')}]'></span>`;
+    expect(parseMyfinDepartment(allDay).hours?.mon).toEqual(['00:00', '24:00']);
+  });
+
+  it('телефон — первый полный номер, а не короткий', () => {
+    expect(parseMyfinDepartment(page).phone).toBe('+375-44-733-33-32');
+  });
+
+  it('нет расписания — null', () => {
+    expect(parseMyfinDepartment('<p>нет данных</p>')).toEqual({ hours: null, phone: null });
+  });
+});
+
+describe('parseMyfinCity: путь к странице отделения', () => {
+  it('сохраняется для обхода страниц отделений', () => {
+    expect(byId['by-minsk-myfin-alfabank-204']!.sourceIds).toEqual({
+      myfin: 'alfabank-204',
+      myfin_page: '/bank/alfabank/department/204-minsk-logoyiskiyi-trakt-10',
+    });
   });
 });

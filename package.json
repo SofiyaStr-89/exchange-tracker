@@ -19,7 +19,8 @@
     "stats": "tsx --env-file-if-exists=.env.local collector/stats.ts",
     "try-parse": "tsx collector/try-parse.ts",
     "dupes": "tsx --env-file-if-exists=.env.local collector/dupes.ts",
-    "sanitize-db": "tsx --env-file-if-exists=.env.local collector/sanitize-db.ts"
+    "sanitize-db": "tsx --env-file-if-exists=.env.local collector/sanitize-db.ts",
+    "myfin-details": "tsx --env-file-if-exists=.env.local collector/myfin-details.ts"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.22",

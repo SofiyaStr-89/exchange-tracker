@@ -23,7 +23,8 @@ export async function saveResult(db: Db, result: AdapterResult): Promise<void> {
           city: sql`excluded.city`,
           address: sql`excluded.address`,
           bank: sql`excluded.bank`,
-          hours: sql`excluded.hours`,
+          // Источник без часов не затирает часы, найденные обходом страниц отделений.
+          hours: sql`coalesce(excluded.hours, ${exchangers.hours})`,
           phone: sql`coalesce(excluded.phone, ${exchangers.phone})`,
           website: sql`coalesce(excluded.website, ${exchangers.website})`,
           // Источник без координат не затирает найденные геокодером (правило 3).
