@@ -7,7 +7,7 @@ import { getDb } from '../lib/db/index.js';
 import { exchangers } from '../lib/db/schema.js';
 import { CITIES } from '../lib/cities.js';
 import { distanceMeters } from '../lib/geo.js';
-import { geocodeGugik, geocodeNominatim, geocodeNominatimBy, parsePolishAddress, type Point } from '../lib/geocode.js';
+import { geocodeGugik, geocodeNominatim, geocodeNominatimBy, geocodePlaceBy, parsePolishAddress, placeNamesFromAddress, type Point } from '../lib/geocode.js';
 import { byAddressKey, fetchOnlinerPoints } from '../lib/onliner.js';
 
 const PAUSE_MS = 1100; // Nominatim: не больше 1 запроса в секунду
@@ -88,6 +88,28 @@ if (missingBy.length) {
       }
       point = cacheBy.get(address) ?? null;
     }
+    // Нестандартная запись («Независимости пр., 23», «П. Глебки ул., 5») — пробуем упрощённый адрес «глебки 5».
+    const key = byAddressKey(address);
+    if (!point && key) {
+      const cacheKey = `key|${key}|${city}`;
+      if (!cacheBy.has(cacheKey)) {
+        await sleep(PAUSE_MS);
+        cacheBy.set(cacheKey, await geocodeNominatimBy(key, city));
+      }
+      point = cacheBy.get(cacheKey) ?? null;
+      if (point) via = `Nominatim (адрес «${key}»)`;
+    }
+    // Адрес без улицы с номером (ТЦ за МКАД) — ищем сам ТЦ по названию из кавычек.
+    for (const place of point ? [] : placeNamesFromAddress(address)) {
+      const placeKey = `place|${place}|${city}`;
+      if (!cacheBy.has(placeKey)) {
+        await sleep(PAUSE_MS);
+        cacheBy.set(placeKey, await geocodePlaceBy(place, city));
+      }
+      point = cacheBy.get(placeKey) ?? null;
+      via = `Nominatim (место «${place}»)`;
+      if (point) break;
+    }
     // Точка дальше 40 км от центра города — скорее чужой одноимённый адрес.
     if (point && center && distanceMeters(point, center) > 40_000) {
       statsBy.farAway++;
@@ -102,6 +124,7 @@ if (missingBy.length) {
     await db.update(exchangers).set({ lat: point.lat, lng: point.lng, coordsSource: 'geocoder' }).where(eq(exchangers.id, id));
     if (via === 'onliner') statsBy.onliner++;
     else statsBy.nominatim++;
+    if (via.startsWith('Nominatim (')) console.log(`✓ ${via}: ${address}`);
   }
   console.log(`Беларусь: без координат было ${missingBy.length}.`, statsBy);
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { geocodeGugik, geocodeNominatim, parsePolishAddress } from '../lib/geocode.js';
+import { geocodeGugik, geocodeNominatim, parsePolishAddress, placeNamesFromAddress } from '../lib/geocode.js';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -98,5 +98,15 @@ describe('geocodeNominatim', () => {
   it('ничего не нашёл — null', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json([])));
     expect(await geocodeNominatim(address)).toBeNull();
+  });
+});
+
+describe('placeNamesFromAddress', () => {
+  it('названия ТЦ и магазинов из кавычек и скобок', () => {
+    expect(placeNamesFromAddress('Минский район, Боровлянский с/с, 74/1 (ТЦ «Экспобел»)')).toEqual(['Экспобел']);
+    expect(placeNamesFromAddress('Минская обл., Минский р-н, Боровлянский с/с, 7А, "ГИППО", Боровая')).toEqual(['ГИППО']);
+    expect(placeNamesFromAddress('Минский район, район аг. Сеница, 68/3, строительный супермаркет «Мастак», Минск')).toEqual(['Мастак']);
+    expect(placeNamesFromAddress('ул. Ольшевского, 1/3, Минск')).toEqual([]);
+    expect(placeNamesFromAddress('пр. газеты "Звезда", 16, Минск')).toEqual([]);
   });
 });

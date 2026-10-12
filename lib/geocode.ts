@@ -103,3 +103,25 @@ export async function geocodeNominatimBy(address: string, city: string): Promise
   const [first] = (await response.json()) as { lat: string; lon: string }[];
   return first ? { lat: Number(first.lat), lng: Number(first.lon) } : null;
 }
+
+/** Названия мест из кавычек («Экспобел», "ГИППО") — для поиска ТЦ, когда у адреса нет улицы с номером. */
+export function placeNamesFromAddress(address: string): string[] {
+  const names = [...address.matchAll(/(\S+\s+)?[«"“]([^»"”]{2,40})[»"”]/g)]
+    // «пр. газеты "Звезда"» — это улица, а не место.
+    .filter((m) => !/^газет/i.test(m[1]?.trim() ?? ''))
+    .map((m) => m[2]!.trim());
+  return [...new Set(names)];
+}
+
+/** Место по названию (ТЦ, магазин) рядом с городом через Nominatim (1 запрос в секунду — паузу держит вызывающий код). */
+export async function geocodePlaceBy(name: string, city: string): Promise<Point | null> {
+  const url = new URL('https://nominatim.openstreetmap.org/search');
+  url.searchParams.set('q', `${name}, ${city}, Беларусь`);
+  url.searchParams.set('countrycodes', 'by');
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('limit', '1');
+  const response = await fetch(url.toString(), { headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'ru' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!response.ok) throw new Error(`Nominatim: HTTP ${response.status}`);
+  const [first] = (await response.json()) as { lat: string; lon: string }[];
+  return first ? { lat: Number(first.lat), lng: Number(first.lon) } : null;
+}
