@@ -28,9 +28,11 @@ for (const { id, page } of todo.slice(0, limit)) {
     const { hours, phone } = parseMyfinDepartment(await res.text());
     if (hours) stats.hours++;
     if (phone) stats.phones++;
+    // Расписания на странице нет — пишем пустые часы ({}): «проверено, часы неизвестны» (FR-22),
+    // чтобы не возвращаться к этой странице каждый час.
     await db
       .update(exchangers)
-      .set({ ...(hours ? { hours } : {}), ...(phone ? { phone: sql`coalesce(${exchangers.phone}, ${phone})` } : {}) })
+      .set({ hours: hours ?? {}, ...(phone ? { phone: sql`coalesce(${exchangers.phone}, ${phone})` } : {}) })
       .where(eq(exchangers.id, id));
   } catch (err) {
     stats.failed++;
