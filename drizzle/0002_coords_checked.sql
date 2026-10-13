@@ -1,0 +1,1 @@
+ALTER TABLE "exchangers" ADD COLUMN "coords_checked_at" timestamp with time zone;

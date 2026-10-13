@@ -25,7 +25,10 @@ export const exchangers = pgTable(
     address: text('address').notNull(),
     lat: doublePrecision('lat'),
     lng: doublePrecision('lng'),
-    coordsSource: text('coords_source', { enum: ['source', 'osm', 'geocoder'] }),
+    // address — координаты источника были далеко от адреса и заменены точкой адреса (check-coords).
+    coordsSource: text('coords_source', { enum: ['source', 'osm', 'geocoder', 'address'] }),
+    /** Когда координаты источника сверены с адресом; при смене адреса сбрасывается. */
+    coordsCheckedAt: timestamp('coords_checked_at', { withTimezone: true }),
     hours: jsonb('hours').$type<WeekHours>(),
     sourceIds: jsonb('source_ids').$type<Record<string, string>>().notNull().default({}),
     phone: text('phone'),

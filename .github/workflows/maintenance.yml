@@ -44,6 +44,9 @@ jobs:
       - name: Координаты новых точек
         if: env.DATABASE_URL != ''
         run: npm run geocode
+      - name: Сверка координат источников с адресом (новые точки)
+        if: env.DATABASE_URL != ''
+        run: npm run check-coords -- 300
       - name: Часы работы новых отделений myfin (не больше 500 страниц за ночь, ~25 минут)
         if: env.DATABASE_URL != ''
         run: npm run myfin-details -- 500

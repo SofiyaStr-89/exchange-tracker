@@ -84,6 +84,31 @@ describe('geocodeGugik', () => {
   });
 });
 
+describe('адрес без индекса (marketportal)', () => {
+  it('разбирается с пустым индексом', () => {
+    expect(parsePolishAddress('Al. Komisji Edukacji Narodowej 36, Warszawa')).toEqual({
+      street: 'Aleje Komisji Edukacji Narodowej',
+      number: '36',
+      postalCode: '',
+      city: 'Warszawa',
+    });
+  });
+
+  it('GUGiK без индекса: только если адрес в городе один', async () => {
+    const a = { street: 'Tamka', number: '45a', postalCode: '', city: 'Warszawa' };
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ results: { '1': { city: 'Warszawa', code: '00-369', x: '21.02182', y: '52.23645' } } })));
+    expect(await geocodeGugikLoose(a)).toEqual({ lat: 52.23645, lng: 21.02182 });
+    expect(await geocodeGugik(a)).toBeNull(); // точный поиск без индекса не делаем
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({ results: { '1': { city: 'Warszawa', code: '00-369', x: '21', y: '52.2' }, '2': { city: 'Warszawa', code: '05-077', x: '21.2', y: '52.2' } } }),
+      ),
+    );
+    expect(await geocodeGugikLoose(a)).toBeNull();
+  });
+});
+
 describe('geocodeGugikLoose', () => {
   const jp2 = { street: 'Jana Pawła II', number: '29', postalCode: '00-566', city: 'Warszawa' };
   const both = {

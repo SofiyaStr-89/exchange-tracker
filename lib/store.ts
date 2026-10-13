@@ -11,6 +11,8 @@ const CHUNK = 500;
 const chunks = <T>(items: T[]) =>
   Array.from({ length: Math.ceil(items.length / CHUNK) }, (_, i) => items.slice(i * CHUNK, (i + 1) * CHUNK));
 
+const keepCorrected = sql`(${exchangers.coordsSource} = 'address' and excluded.address = ${exchangers.address})`;
+
 export async function saveResult(db: Db, result: AdapterResult): Promise<void> {
   for (const part of chunks(result.exchangers)) {
     await db
@@ -27,10 +29,12 @@ export async function saveResult(db: Db, result: AdapterResult): Promise<void> {
           hours: sql`coalesce(excluded.hours, ${exchangers.hours})`,
           phone: sql`coalesce(excluded.phone, ${exchangers.phone})`,
           website: sql`coalesce(excluded.website, ${exchangers.website})`,
-          // Источник без координат не затирает найденные геокодером (правило 3).
-          lat: sql`coalesce(excluded.lat, ${exchangers.lat})`,
-          lng: sql`coalesce(excluded.lng, ${exchangers.lng})`,
-          coordsSource: sql`coalesce(excluded.coords_source, ${exchangers.coordsSource})`,
+          // Источник без координат не затирает найденные геокодером (правило 3);
+          // точку, поправленную по адресу, источник не возвращает обратно, пока адрес тот же.
+          lat: sql`case when ${keepCorrected} then ${exchangers.lat} else coalesce(excluded.lat, ${exchangers.lat}) end`,
+          lng: sql`case when ${keepCorrected} then ${exchangers.lng} else coalesce(excluded.lng, ${exchangers.lng}) end`,
+          coordsSource: sql`case when ${keepCorrected} then ${exchangers.coordsSource} else coalesce(excluded.coords_source, ${exchangers.coordsSource}) end`,
+          coordsCheckedAt: sql`case when excluded.address = ${exchangers.address} then ${exchangers.coordsCheckedAt} end`,
           sourceIds: sql`${exchangers.sourceIds} || excluded.source_ids`,
           updatedAt: sql`now()`,
         },

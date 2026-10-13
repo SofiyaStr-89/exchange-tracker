@@ -41,7 +41,8 @@ for (const { id, address } of missing) {
       point = await geocodeGugikLoose(parsed);
       via = 'GUGiK без индекса';
     }
-    if (!point) {
+    // Без индекса Nominatim может найти одноимённую улицу в другом районе — не рискуем.
+    if (!point && parsed.postalCode) {
       await sleep(PAUSE_MS);
       point = await geocodeNominatim(parsed);
       via = 'Nominatim';

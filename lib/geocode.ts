@@ -15,7 +15,7 @@ export interface Point {
   lng: number;
 }
 
-/** «Targowa 46 (lok. 65), 03-733 Warszawa» → части адреса; null, если нет номера дома. */
+/** «Targowa 46 (lok. 65), 03-733 Warszawa» → части адреса; индекс может отсутствовать (''); null, если нет номера дома. */
 export function parsePolishAddress(raw: string): PolishAddress | null {
   let text = raw;
   for (let prev = ''; prev !== text; ) {
@@ -24,9 +24,9 @@ export function parsePolishAddress(raw: string): PolishAddress | null {
   }
   text = text.replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim();
 
-  const m = text.match(/^(.*),\s*(\d{2}-\d{3})\s+(.+)$/);
+  const m = text.match(/^(.*),\s*(?:(\d{2}-\d{3})\s+)?([^,\d][^,]*)$/);
   if (!m) return null;
-  const [, left, postalCode, city] = m;
+  const [, left, postalCode = '', city] = m;
   const streetPart = left!
     .replace(/^Al\.\s*/, 'Aleje ')
     .replace(/^al\.\s*/, 'aleje ')
@@ -75,6 +75,7 @@ function pointOf(r: GugikResult): Point | null {
 const sameCity = (r: GugikResult, a: PolishAddress) => r.city?.toLowerCase() === a.city.toLowerCase();
 
 export async function geocodeGugik(a: PolishAddress): Promise<Point | null> {
+  if (!a.postalCode) return null;
   // С индексом: в Варшаве есть одноимённые улицы в разных районах (Piękna, Ptasia).
   for (const r of await gugikResults(`${a.postalCode} ${a.city}, ${a.street} ${a.number}`)) {
     if (!sameCity(r, a) || r.code !== a.postalCode) continue;
@@ -85,15 +86,14 @@ export async function geocodeGugik(a: PolishAddress): Promise<Point | null> {
 }
 
 /**
- * Запасной поиск, когда у источника неточный индекс (kursarz: «Jana Pawła II 29, 00-566» вместо 00-867):
+ * Запасной поиск, когда у источника неточный индекс или его нет (kursarz: «Jana Pawła II 29, 00-566» вместо 00-867):
  * без индекса, и берём адрес, только если он один с тем же началом индекса («00-…» — центр Варшавы,
- * а одноимённая ulica Jana Pawła II 29 в Wesołej — «05-…»).
+ * а одноимённая ulica Jana Pawła II 29 в Wesołej — «05-…»). Без индекса — только если адрес в городе один.
  */
 export async function geocodeGugikLoose(a: PolishAddress): Promise<Point | null> {
-  if (!a.postalCode) return null;
   const area = a.postalCode.slice(0, 2);
   const matches = (await gugikResults(`${a.city}, ${a.street} ${a.number}`)).filter(
-    (r) => sameCity(r, a) && r.code?.slice(0, 2) === area,
+    (r) => sameCity(r, a) && (!area || r.code?.slice(0, 2) === area),
   );
   return matches.length === 1 ? pointOf(matches[0]!) : null;
 }
