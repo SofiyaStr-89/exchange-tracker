@@ -22,6 +22,9 @@ export interface CardOptions {
   /** Сумма калькулятора общая для всех карточек (FR-32). */
   calc: CalcState;
   onCalcChange: (calc: CalcState) => void;
+  /** Звёздочка избранного (FR-33). */
+  favorite: boolean;
+  onToggleFavorite: () => void;
   /** Расстояние до обменника и от чего оно посчитано (FR-28). */
   distance: { meters: number; fromUser: boolean };
   onClose: () => void;
@@ -136,7 +139,7 @@ function hoursLine(e: ApiExchanger, timeZone: string): { text: string; open: boo
   return { text, open: state.open, known: true };
 }
 
-export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, mode, calc, onCalcChange, distance, onClose }: CardOptions): void {
+export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, mode, calc, onCalcChange, favorite, onToggleFavorite, distance, onClose }: CardOptions): void {
   const timeZone = COUNTRY_TIME_ZONE[e.country] ?? 'Europe/Warsaw';
   const local = LOCAL_CURRENCY[e.country] ?? '';
   const rate = e.rates[currency];
@@ -154,9 +157,16 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
   const closeButton = el('button', { className: 'card-close', text: '×' });
   closeButton.setAttribute('aria-label', t.close);
   closeButton.addEventListener('click', onClose);
+  const star = el('button', { className: 'card-star', text: favorite ? '★' : '☆' });
+  star.type = 'button';
+  star.setAttribute('aria-pressed', String(favorite));
+  star.setAttribute('aria-label', favorite ? t.favoriteRemove : t.favoriteAdd);
+  star.title = favorite ? t.favoriteRemove : t.favoriteAdd;
+  star.addEventListener('click', onToggleFavorite);
 
   const parts: (Node | null)[] = [
     closeButton,
+    star,
     el('h2', { text: e.name }),
     el('p', { className: 'muted', text: e.bank && e.bank !== e.name ? `${e.bank} · ${e.address}` : e.address }),
     routeBlock(e),

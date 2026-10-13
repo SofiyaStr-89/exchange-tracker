@@ -72,6 +72,8 @@ export interface Mergeable {
   phone: string | null;
   website: string | null;
   rates: Record<string, Omit<RateRow, 'currency'>>;
+  /** id всех записей группы склейки: основной id может смениться, избранное ищется по любому (FR-33). */
+  memberIds?: string[];
 }
 
 const priority = (e: Mergeable) => Math.min(...e.sources.map((s) => SOURCE_PRIORITY.indexOf(s)).map((i) => (i < 0 ? 99 : i)));
@@ -116,6 +118,7 @@ export function mergeDuplicates<T extends Mergeable>(items: T[]): T[] {
       phone: primary.phone ?? sorted.find((e) => e.phone)?.phone ?? null,
       website: primary.website ?? sorted.find((e) => e.website)?.website ?? null,
       sources: [...new Set(sorted.flatMap((e) => e.sources))],
+      memberIds: sorted.flatMap((e) => e.memberIds ?? [e.id]),
       rates: Object.fromEntries(Object.entries(merged).map(([cur, { currency: _, ...rest }]) => [cur, rest])),
     };
   });

@@ -9,6 +9,8 @@ import { fetchExchangers, type ApiExchanger } from './api.js';
 import { renderCard, type CalcState } from './card.js';
 import { countryAt, currencyName, loadCurrencies, type Country } from './currencies.js';
 import { el } from './dom.js';
+import { cleanFavorites, isFavorite, toggleFavorite } from './favorites.js';
+import { createFavoritesScreen } from './favorites-screen.js';
 import { formatDistance, formatOpens, formatRate, staleLabel } from './format.js';
 import { fmt, t } from './i18n/index.js';
 import { locate } from './locate.js';
@@ -39,6 +41,8 @@ const state = {
   openOnly: load<boolean>('openOnly', true) !== false,
   // FR-32: сумма калькулятора общая для всех карточек и запоминается.
   calc: load<CalcState>('calcAmount', { amount: '', direction: 'foreign' }),
+  // FR-35: избранное — на устройстве.
+  favorites: cleanFavorites(load<unknown>('favorites', [])),
   country: 'PL' as Country,
   exchangers: [] as ApiExchanger[],
   nearest: [] as ApiExchanger[],
@@ -86,10 +90,25 @@ const search = createSearch({
 top.append(search, controls, hint, notice);
 const refreshBadge = el('div', { className: 'refresh-badge', text: t.refreshing });
 refreshBadge.hidden = true;
-const bottom = el('div', { className: 'bottom' }, openOnlyButton, refreshBadge, locateButton);
+// FR-34: экран «Избранное»; тап по строке — к обменнику на карте и его карточка.
+const favoritesScreen = createFavoritesScreen({
+  getIds: () => state.favorites,
+  getView: () => ({ currency: state.currency, mode: state.mode }),
+  onSelect: (e) => {
+    map.setView([e.lat, e.lng], Math.max(map.getZoom(), DEFAULT_ZOOM)); // moveend → подгрузка области
+    openCard(e);
+  },
+});
+const favoritesButton = el('button', { className: 'chip', text: `★ ${t.favorites}` });
+favoritesButton.type = 'button';
+favoritesButton.addEventListener('click', () => {
+  closeCard();
+  favoritesScreen.show();
+});
+const bottom = el('div', { className: 'bottom' }, el('div', { className: 'bottom-chips' }, openOnlyButton, favoritesButton), refreshBadge, locateButton);
 const card = el('section', { className: 'card' });
 card.hidden = true;
-app.replaceChildren(mapEl, top, bottom, card);
+app.replaceChildren(mapEl, top, bottom, card, favoritesScreen.element);
 
 function setNotice(text: string | null, action?: { label: string; onClick: () => void }): void {
   notice.replaceChildren();
@@ -150,6 +169,13 @@ function openCard(e: ApiExchanger): void {
       state.calc = calc;
       save('calcAmount', calc);
     },
+    favorite: isFavorite(state.favorites, e),
+    onToggleFavorite: () => {
+      state.favorites = toggleFavorite(state.favorites, e);
+      save('favorites', state.favorites);
+      openCard(e);
+      renderPlates(); // FR-18: ★ на плашке
+    },
     distance: { meters: distanceMeters(from, e), fromUser: state.user !== null },
     onClose: closeCard,
   });
@@ -189,7 +215,8 @@ function renderPlates(): void {
       stale ? 'plate-stale' : '',
       e.open ? '' : 'plate-closed',
     ];
-    const label = value === null ? t.noRateMark : formatRate(value);
+    const star = isFavorite(state.favorites, e) ? '<span class="plate-star">★</span>' : ''; // FR-18
+    const label = star + (value === null ? t.noRateMark : formatRate(value));
     const opens = [stale, next ? formatOpens(next) : null].filter(Boolean).map((s) => `<small>${s}</small>`).join('');
     const icon = L.divIcon({
       className: 'plate-anchor',
@@ -218,7 +245,7 @@ function renderPlates(): void {
   const nearest = state.openOnly && openNearest.length ? openNearest : withRate;
   const first = nearest[0];
   if (!first) return setNotice(fmt(t.emptyFar, { currency: state.currency }));
-  setNotice(fmt(t.emptyNearest, { currency: state.currency, name: first.name, distance: formatDistance(first.distance) }), {
+  setNotice(fmt(t.emptyNearest, { currency: state.currency, name: first.name, distance: formatDistance(first.distance ?? 0) }), {
     label: t.showNearest,
     onClick: () => map.fitBounds(L.latLngBounds([map.getCenter(), ...nearest.map((e) => L.latLng(e.lat, e.lng))]), { padding: [48, 48] }),
   });

@@ -483,6 +483,90 @@ body {
   color: var(--muted);
 }
 
+/* Избранное (FR-18, FR-33, FR-34) */
+.bottom-chips {
+  display: flex;
+  gap: 8px;
+}
+
+.card-star {
+  position: absolute;
+  top: 8px;
+  right: 48px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.card-star[aria-pressed='true'] {
+  color: #f59e0b;
+}
+
+.card h2 {
+  margin-right: 80px;
+}
+
+.plate-star {
+  color: #f59e0b;
+  margin-right: 3px;
+}
+
+.favorites {
+  position: absolute;
+  inset: 0;
+  z-index: 1100;
+  overflow-y: auto;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  color: var(--text);
+}
+
+.favorites[hidden] {
+  display: none;
+}
+
+.favorites h2 {
+  margin: 4px 48px 12px 0;
+  font-size: 20px;
+}
+
+.favorites .card-close {
+  top: calc(8px + env(safe-area-inset-top));
+}
+
+.favorites-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.favorite-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.favorite-row strong {
+  font-size: 16px;
+}
+
+.favorite-rate {
+  font-weight: 600;
+}
+
 /* Маршрут (FR-36) */
 .route {
   display: flex;

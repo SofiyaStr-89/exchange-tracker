@@ -38,6 +38,12 @@ export const ru = {
   you: 'Вы здесь',
 
   close: 'Закрыть',
+  favorites: 'Избранное',
+  favoritesTitle: 'Избранное',
+  favoritesEmpty: 'Пока пусто. Отметьте обменник звёздочкой ☆ в его карточке.',
+  favoritesGone: 'Отмеченные обменники больше не работают.',
+  favoriteAdd: 'Добавить в избранное',
+  favoriteRemove: 'Убрать из избранного',
   route: 'Маршрут',
   routeInGoogle: 'Открывать в Google Maps',
   routeInApple: 'Открывать в Apple Maps',

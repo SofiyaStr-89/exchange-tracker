@@ -13,11 +13,14 @@ export interface ApiExchanger {
   address: string;
   lat: number;
   lng: number;
-  distance: number;
+  /** Только в выдаче карты: расстояние от центра области. */
+  distance?: number;
   hours: WeekHours | null;
   phone: string | null;
   website: string | null;
   sources: string[];
+  /** id всех записей, из которых склеен обменник (для избранного). */
+  memberIds: string[];
   rates: Record<string, ApiRate>;
 }
 
@@ -36,4 +39,15 @@ export async function fetchExchangers(bounds: Bounds, currency: string): Promise
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return (await response.json()) as ExchangersResponse;
+}
+
+/** Избранное (FR-34): список id — в теле, не в адресе. */
+export async function fetchFavorites(ids: string[]): Promise<{ refreshing: boolean; exchangers: ApiExchanger[] }> {
+  const response = await fetch('/api/favorites', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return (await response.json()) as { refreshing: boolean; exchangers: ApiExchanger[] };
 }

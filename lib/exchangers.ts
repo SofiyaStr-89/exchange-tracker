@@ -1,6 +1,6 @@
 // Выдача обменников в видимой области карты (SPEC: «API», FR-3, FR-9, правило склейки 2).
 
-import { and, between, eq, isNotNull } from 'drizzle-orm';
+import { and, between, eq, inArray, isNotNull, or, type SQL } from 'drizzle-orm';
 import type { getDb } from './db/index.js';
 import { exchangers, rates, type WeekHours } from './db/schema.js';
 import { boundsCenter, inside, type Bounds } from './bounds.js';
@@ -76,29 +76,20 @@ export interface ExchangerOut {
   website: string | null;
   /** Источники, из которых склеен обменник (правило склейки 1). */
   sources: string[];
+  memberIds: string[];
   rates: Record<string, Omit<RateRow, 'currency'>>;
 }
 
-/** Обменники в области и ближайшие к ней (FR-9), с курсами, склеенными по правилу 2. */
-export async function loadInBounds(
-  db: ReturnType<typeof getDb>,
-  bounds: Bounds,
-  currency: string,
-): Promise<{ inView: ExchangerOut[]; nearest: ExchangerOut[] }> {
-  const center = boundsCenter(bounds);
-  const dLat = NEAREST_MAX_M / 111_195;
-  const dLng = dLat / Math.cos((center.lat * Math.PI) / 180);
+type Db = ReturnType<typeof getDb>;
+type Point = Omit<ExchangerOut, 'distance'>;
+
+/** Обменники с координатами по условию — с курсами, склеенными по источникам (правило склейки 2). */
+async function loadPoints(db: Db, where: SQL | undefined): Promise<Point[]> {
   const rows = await db
     .select({ e: exchangers, r: rates })
     .from(exchangers)
     .leftJoin(rates, eq(rates.exchangerId, exchangers.id))
-    .where(
-      and(
-        isNotNull(exchangers.lat),
-        between(exchangers.lat, center.lat - dLat, center.lat + dLat),
-        between(exchangers.lng, center.lng - dLng, center.lng + dLng),
-      ),
-    );
+    .where(and(isNotNull(exchangers.lat), where));
 
   const byId = new Map<string, { e: (typeof rows)[number]['e']; rates: RateRow[] }>();
   for (const { e, r } of rows) {
@@ -117,9 +108,9 @@ export async function loadInBounds(
     byId.set(e.id, item);
   }
 
-  const points = [...byId.values()].map(({ e, rates: list }) => {
+  return [...byId.values()].map(({ e, rates: list }) => {
     const merged = mergeRates(list);
-    const out: Omit<ExchangerOut, 'distance'> = {
+    return {
       id: e.id,
       country: e.country,
       city: e.city,
@@ -132,9 +123,43 @@ export async function loadInBounds(
       phone: e.phone,
       website: e.website,
       sources: Object.keys(e.sourceIds),
+      memberIds: [e.id],
       rates: Object.fromEntries(Object.entries(merged).map(([cur, { currency: _, ...rest }]) => [cur, rest])),
     };
-    return out;
   });
+}
+
+const near = (p: { lat: number; lng: number }, meters: number): SQL => {
+  const dLat = meters / 111_195;
+  const dLng = dLat / Math.cos((p.lat * Math.PI) / 180);
+  return and(between(exchangers.lat, p.lat - dLat, p.lat + dLat), between(exchangers.lng, p.lng - dLng, p.lng + dLng))!;
+};
+
+/** Обменники в области и ближайшие к ней (FR-9), с курсами, склеенными по правилу 2. */
+export async function loadInBounds(
+  db: Db,
+  bounds: Bounds,
+  currency: string,
+): Promise<{ inView: ExchangerOut[]; nearest: ExchangerOut[] }> {
+  const points = await loadPoints(db, near(boundsCenter(bounds), NEAREST_MAX_M));
   return splitByBounds(mergeDuplicates(points), bounds, (e) => Boolean(e.rates[currency]));
+}
+
+/** Склеиваемые дубли лежат не дальше этого — соседей берём с запасом, чтобы склейка совпала с картой. */
+const MERGE_RADIUS_M = 300;
+
+/**
+ * Избранные обменники по id (FR-34): вместе с соседями, чтобы склеить так же, как на карте,
+ * и найти обменник, даже если его основной id в группе склейки сменился.
+ */
+export async function loadByIds(db: Db, ids: string[]): Promise<Point[]> {
+  if (!ids.length) return [];
+  const found = await db
+    .select({ lat: exchangers.lat, lng: exchangers.lng })
+    .from(exchangers)
+    .where(and(inArray(exchangers.id, ids), isNotNull(exchangers.lat)));
+  if (!found.length) return [];
+  const points = await loadPoints(db, or(...found.map((p) => near({ lat: p.lat!, lng: p.lng! }, MERGE_RADIUS_M))));
+  const wanted = new Set(ids);
+  return mergeDuplicates(points).filter((e) => e.memberIds.some((id) => wanted.has(id)));
 }

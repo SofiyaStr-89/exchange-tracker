@@ -12,6 +12,9 @@
     },
     "api/exchangers.ts": {
       "maxDuration": 60
+    },
+    "api/favorites.ts": {
+      "maxDuration": 60
     }
   }
 }

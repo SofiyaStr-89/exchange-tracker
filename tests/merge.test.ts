@@ -42,6 +42,8 @@ describe('mergeDuplicates (правило склейки 1)', () => {
     expect(merged[0]).toMatchObject({ id: 'kl-1', name: 'Kantor Redar', phone: '+48 1', sources: ['kantorlive', 'osm'] });
     expect(merged[0]!.hours).toEqual({ mon: ['09:00', '18:00'] });
     expect(merged[0]!.rates.USD).toBeDefined();
+    // Избранное ищется по любому id группы (FR-33).
+    expect((merged[0] as Mergeable).memberIds).toEqual(['kl-1', 'osm-1']);
   });
 
   it('одинаковый адрес и похожее название — один обменник, даже если точки в 100 м', () => {
