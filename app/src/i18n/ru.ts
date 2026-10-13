@@ -6,6 +6,7 @@ export const ru = {
   currencyLabel: 'Валюта',
   searchPlaceholder: 'Город, адрес или место',
   searchNothing: 'Ничего не нашлось',
+  searching: 'Ищу…',
   modeBuy: 'Покупаю',
   modeSell: 'Продаю',
   modeLabel: 'Что делаю',

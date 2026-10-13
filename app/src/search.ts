@@ -4,6 +4,7 @@
 
 import { hasCyrillic, reverse, toBelarusian, toRussian, type Dictionary } from '../../lib/by-words.js';
 import { CITIES_DATA } from '../../lib/cities-data.js';
+import { countryAt } from './currencies.js';
 import { el } from './dom.js';
 import { t } from './i18n/index.js';
 import { citySuggestions, dedupeSuggestions, photonToSuggestion, splitCityQuery, type Suggestion } from './search-logic.js';
@@ -39,14 +40,30 @@ function loadByWords() {
   return byWords;
 }
 
-/** Русский запрос по Беларуси: ищем и как есть (магазины там часто по-русски), и в переводе на белорусский. */
-async function photonRu(query: string, near: { lat: number; lng: number }, signal: AbortSignal): Promise<Suggestion[]> {
+/**
+ * Русский запрос по Беларуси: ищем и в переводе на белорусский, и как есть (магазины там часто по-русски).
+ * Перевод отвечает быстрее и нужен чаще — его показываем сразу (onPartial), запрос как есть дописываем потом.
+ */
+async function photonRu(
+  query: string,
+  near: { lat: number; lng: number },
+  signal: AbortSignal,
+  onPartial: (items: Suggestion[]) => void,
+): Promise<Suggestion[]> {
   const words = await loadByWords();
   const be = words ? toBelarusian(query, words.dict, words.keys) : query;
   if (!words || be === query) return photon(query, near, signal);
-  const [translated, original] = await Promise.all([photon(be, near, signal), photon(query, near, signal).catch(() => [])]);
   const ru = (s: string | undefined) => (s ? toRussian(s, words.back) : s);
-  return [...translated, ...original].map((s) => ({ ...s, label: ru(s.label)!, ...(s.detail ? { detail: ru(s.detail) } : {}) }));
+  const toRu = (items: Suggestion[]) => items.map((s) => ({ ...s, label: ru(s.label)!, ...(s.detail ? { detail: ru(s.detail) } : {}) }));
+  const quiet = (err: unknown): Suggestion[] => {
+    if ((err as Error).name === 'AbortError') throw err;
+    return []; // один из двух запросов не ответил — обойдёмся другим
+  };
+  const original = photon(query, near, signal).catch(quiet);
+  original.catch(() => {}); // отмену разберёт await ниже
+  const translated = toRu(await photon(be, near, signal).catch(quiet));
+  if (translated.length) onPartial(translated);
+  return [...translated, ...toRu(await original)];
 }
 
 async function nominatim(query: string): Promise<Suggestion | null> {
@@ -78,13 +95,16 @@ export function createSearch(options: { getCenter: () => { lat: number; lng: num
   let current: Suggestion[] = [];
 
   const choose = (s: Suggestion) => {
+    controller?.abort(); // запоздавший ответ не должен снова открыть список
+    clearTimeout(timer);
     input.value = s.label;
     list.hidden = true;
     input.blur();
     options.onSelect(s);
   };
 
-  const render = (items: Suggestion[], empty = false) => {
+  /** empty — показать «Ничего не нашлось», если подсказок нет; loading — строка «Ищу…» под уже найденным. */
+  const render = (items: Suggestion[], empty = false, loading = false) => {
     current = items;
     list.replaceChildren(
       ...(items.length
@@ -101,8 +121,9 @@ export function createSearch(options: { getCenter: () => { lat: number; lng: num
         : empty
           ? [el('li', { className: 'search-empty', text: t.searchNothing })]
           : []),
+      ...(loading ? [el('li', { className: 'search-empty', text: t.searching })] : []),
     );
-    list.hidden = !items.length && !empty;
+    list.hidden = !items.length && !empty && !loading;
   };
 
   const run = async (query: string) => {
@@ -110,10 +131,15 @@ export function createSearch(options: { getCenter: () => { lat: number; lng: num
     controller = new AbortController();
     const local = citySuggestions(query, CITIES_DATA);
     const { city, rest } = splitCityQuery(query, CITIES_DATA);
+    // Сразу — города из нашего списка и «Ищу…»: ответ Photon (а при кириллице ещё и словарь) идёт секунду-другую.
+    render(city ? [] : local, false, true);
     try {
       const near = city ?? options.getCenter();
-      const remote = hasCyrillic(rest) ? await photonRu(rest, near, controller.signal) : await photon(rest, near, controller.signal);
-      render(dedupeSuggestions([...(city ? [] : local), ...remote]).slice(0, 7), true);
+      const head = city ? [] : local;
+      const remote = hasCyrillic(rest)
+        ? await photonRu(rest, near, controller.signal, (items) => render(dedupeSuggestions([...head, ...items]).slice(0, 7), false, true))
+        : await photon(rest, near, controller.signal);
+      render(dedupeSuggestions([...head, ...remote]).slice(0, 7), true);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       render(local, true); // Photon недоступен — хотя бы города
@@ -145,6 +171,8 @@ export function createSearch(options: { getCenter: () => { lat: number; lng: num
 
   input.addEventListener('blur', () => setTimeout(() => (list.hidden = true), 150));
   input.addEventListener('focus', () => {
+    // Карта в Беларуси — словарь улиц грузим заранее, пока человек начинает печатать.
+    if (countryAt(options.getCenter()) === 'BY') void loadByWords();
     if (current.length) list.hidden = false;
   });
   return box;
