@@ -2,8 +2,10 @@
 // пары name:ru / name улиц, остановок и населённых пунктов OSM вокруг городов из нашего списка.
 // Названия улиц меняются редко — пересобирать вручную раз в несколько месяцев: npm run build-by-words.
 // Результат — app/public/by-words.json (приложение загружает его, только когда в поиске кириллица).
+// Серверы Overpass бывают перегружены: собранное копится в recon/raw/by-words-progress.json (вне git),
+// повторный запуск берёт только города, которые ещё не удалось собрать. Начать заново: -- --fresh.
 
-import { writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { CITIES } from '../lib/cities.js';
 import { overpass } from '../lib/overpass.js';
 
@@ -12,7 +14,14 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const WORD = /[\p{L}\d-]+/gu;
 const words = (s: string) => (s.toLowerCase().match(WORD) ?? []).map((w) => w.replace(/ё/g, 'е'));
 
-const counts = new Map<string, Map<string, number>>();
+const PROGRESS = 'recon/raw/by-words-progress.json';
+const fresh = process.argv.includes('--fresh');
+const saved =
+  !fresh && existsSync(PROGRESS)
+    ? (JSON.parse(readFileSync(PROGRESS, 'utf8')) as { done: string[]; counts: Record<string, Record<string, number>> })
+    : { done: [], counts: {} };
+const done = new Set(saved.done);
+const counts = new Map<string, Map<string, number>>(Object.entries(saved.counts).map(([ru, v]) => [ru, new Map(Object.entries(v))]));
 
 function save(): number {
   const dict: Record<string, string> = {};
@@ -20,12 +29,16 @@ function save(): number {
     dict[ru] = [...variants].sort((a, b) => b[1] - a[1])[0]![0];
   }
   writeFileSync('app/public/by-words.json', JSON.stringify(dict));
+  mkdirSync('recon/raw', { recursive: true });
+  const raw = Object.fromEntries([...counts].map(([ru, v]) => [ru, Object.fromEntries(v)]));
+  writeFileSync(PROGRESS, JSON.stringify({ done: [...done], counts: raw }));
   return Object.keys(dict).length;
 }
 // Сначала Минск и областные центры — они дают почти все слова; словарь сохраняется после каждого города.
 const FIRST = ['Минск', 'Брест', 'Витебск', 'Гомель', 'Гродно', 'Могилёв'];
 const rank = (name: string) => (FIRST.includes(name) ? FIRST.indexOf(name) : FIRST.length);
-const cities = CITIES.filter((c) => c.country === 'BY').sort((a, b) => rank(a.name) - rank(b.name));
+const cities = CITIES.filter((c) => c.country === 'BY' && !done.has(c.id)).sort((a, b) => rank(a.name) - rank(b.name));
+console.log(`Уже собрано городов: ${done.size}, осталось: ${cities.length}`);
 let failed = 0;
 for (const [i, city] of cities.entries()) {
   // Минск большой, остальные города — около 7 км вокруг центра.
@@ -49,6 +62,7 @@ out tags;`;
         counts.set(w, m);
       });
     }
+    done.add(city.id);
     console.log(`${i + 1}/${cities.length} ${city.name}: ${elements.length} названий, слов ${save()}`);
   } catch (err) {
     failed++;
