@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { geocodeGugik, geocodeGugikLoose, geocodeNominatim, parsePolishAddress, placeNamesFromAddress } from '../lib/geocode.js';
+import { byQueries, cleanByAddress, geocodeGugik, geocodeGugikLoose, geocodeIntersection, geocodeNominatim, geocodePhoton, intersectionStreets, parsePolishAddress, placeNamesFromAddress } from '../lib/geocode.js';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -161,5 +161,50 @@ describe('placeNamesFromAddress', () => {
     expect(placeNamesFromAddress('Минский район, район аг. Сеница, 68/3, строительный супермаркет «Мастак», Минск')).toEqual(['Мастак']);
     expect(placeNamesFromAddress('ул. Ольшевского, 1/3, Минск')).toEqual([]);
     expect(placeNamesFromAddress('пр. газеты "Звезда", 16, Минск')).toEqual([]);
+  });
+});
+
+describe('Photon — запасной геокодер', () => {
+  const feature = (props: Record<string, string>, lng = 20.9642, lat = 52.267) => ({ properties: { countrycode: 'PL', ...props }, geometry: { coordinates: [lng, lat] } });
+
+  it('опечатка в улице: второй запрос по началу названия, тот же номер и город', async () => {
+    const spy = vi.fn(async (url: string) =>
+      Response.json({
+        features: new URL(url).searchParams.get('q')!.startsWith('broniewsk ')
+          ? [feature({ street: 'Władysława Broniewskiego', housenumber: '28', city: 'Warszawa' })]
+          : [feature({ street: 'Krucza', housenumber: '28', city: 'Warszawa' })],
+      }),
+    );
+    vi.stubGlobal('fetch', spy);
+    expect(await geocodePhoton({ street: 'Broniewskego', number: '28', postalCode: '', city: 'Warszawa' })).toEqual({ lat: 52.267, lng: 20.9642 });
+  });
+
+  it('номер «60/64» и другой город', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ features: [feature({ street: 'Stalowa', housenumber: '60/64', city: 'Warszawa' })] })));
+    expect(await geocodePhoton({ street: 'Stalowa', number: '60/64', postalCode: '', city: 'Warszawa' })).not.toBeNull();
+    expect(await geocodePhoton({ street: 'Stalowa', number: '60/64', postalCode: '', city: 'Kraków' })).toBeNull();
+  });
+
+  it('перекрёсток', async () => {
+    expect(intersectionStreets('Al. Jerozolimskie/E. Plater Lok. 116A, 00-024 Warszawa')).toEqual(['jerozolimskie', 'plater']);
+    expect(intersectionStreets('Stalowa 60/64, Warszawa')).toBeNull();
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ features: [feature({ name: 'Emilii Plater - Al. Jerozolimskie', city: 'Warszawa' }, 21.0055, 52.229)] })));
+    expect(await geocodeIntersection('Al. Jerozolimskie/E. Plater Lok. 116A, 00-024 Warszawa', 'Warszawa')).toEqual({ lat: 52.229, lng: 21.0055 });
+  });
+});
+
+describe('Беларусь: нестандартные адреса', () => {
+  it('латиница в русском слове, сокращения, кавычки', () => {
+    expect(cleanByAddress('Русcиянова ул., 7, Минск')).toBe('Руссиянова улица, 7, Минск');
+    expect(cleanByAddress('ул. Сов. пограничников 110, Гродно')).toBe('улица Советских пограничников 110, Гродно');
+    expect(cleanByAddress('пр. газеты "Звезда", 16, Минск')).toBe('проспект Газеты Звязда, 16, Минск');
+  });
+
+  it('варианты запросов', () => {
+    expect(byQueries('19, ун-сам "Чкаловский", Минск ул. Воронянского', 'Минск')).toContain('улица Воронянского 19, Минск');
+    expect(byQueries('Поселок Лесной, 19а, Минск', 'Минск')).toContain('Лесной 19а, Минский район');
+    expect(byQueries('Минский район, Боровлянский с/с, 43 (магазин Евроопт), Минск', 'Минск')).toContain('Евроопт 43, Боровлянский сельский Совет');
+    expect(byQueries('Пересечение Логойского тракта и МКАД (ЗАО ВЦ Аквабел), Минский р-н', 'Минск')).toContain('Аквабел, Минск');
+    expect(byQueries('9 км Московского шоссе', 'Минск')).toContain('Московское шоссе 9 км, Минский район');
   });
 });

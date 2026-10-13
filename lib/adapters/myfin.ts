@@ -3,6 +3,7 @@
 // Отделения Беларусбанка пропускаем — их точнее даёт официальный API. Координат на странице нет.
 
 import type { WeekHours } from '../db/schema.js';
+import { CITIES_DATA } from '../cities-data.js';
 import { decodeEntities, textOf } from '../html.js';
 import { USER_AGENT } from '../probe.js';
 import { zonedWallTimeToUtc } from '../time.js';
@@ -59,7 +60,11 @@ function timeToday(hhmm: string, now: Date): Date | null {
   return at;
 }
 
+const BY_CITY_NAMES = new Set(CITIES_DATA.filter((c) => c.country === 'BY').map((c) => c.name));
+
 export function parseMyfinCity(html: string, citySlug: string, now = new Date()): AdapterResult {
+  // Город из адреса бывает пустым или с хвостом («Минск ул. Воронянского») — тогда город страницы myfin.
+  const pageCity = CITIES_DATA.find((c) => c.id === `by-${citySlug}`)?.name;
   // Неизвестный банк — название из логотипа в обычной (не рекламной) строке-сводке банка.
   const bankNames = new Map<string, string>(Object.entries(BANK_NAMES));
   for (const m of html.matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/g)) {
@@ -76,7 +81,8 @@ export function parseMyfinCity(html: string, citySlug: string, now = new Date())
     const link = row.match(/href="(\/bank\/[^"/]+\/department\/(\d+)-[^"]*)"[^>]*>([^<]*)<\/a>/);
     const json = row.match(/data-branch-converter="rates" value="([^"]*)"/)?.[1];
     if (!link || !json) continue;
-    const { address, city } = normalizeByAddress(textOf(link[3]!));
+    const { address, city: addressCity } = normalizeByAddress(textOf(link[3]!));
+    const city = BY_CITY_NAMES.has(addressCity) ? addressCity : (pageCity ?? addressCity);
     const bank = bankNames.get(alias) ?? alias;
     const key = `${alias}-${link[2]}`;
     const id = `by-${citySlug}-${SOURCE}-${key}`;
