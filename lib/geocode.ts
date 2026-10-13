@@ -47,25 +47,55 @@ interface GugikResult {
   y?: string;
 }
 
-export async function geocodeGugik(a: PolishAddress): Promise<Point | null> {
+async function gugikResults(address: string): Promise<GugikResult[]> {
   const url = new URL('https://services.gugik.gov.pl/uug/');
   url.searchParams.set('request', 'GetAddress');
-  // С индексом: в Варшаве есть одноимённые улицы в разных районах (Piękna, Ptasia).
-  url.searchParams.set('address', `${a.postalCode} ${a.city}, ${a.street} ${a.number}`);
+  url.searchParams.set('address', address);
   url.searchParams.set('srid', '4326');
   const response = await fetch(url.toString(), {
     headers: { 'User-Agent': USER_AGENT },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`GUGiK: HTTP ${response.status}`);
-  const json = (await response.json()) as { results?: Record<string, GugikResult> | null };
-  for (const r of Object.values(json.results ?? {})) {
-    if (r.city?.toLowerCase() !== a.city.toLowerCase() || r.code !== a.postalCode) continue;
-    const lat = Number(r.y);
-    const lng = Number(r.x);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  // На непонятный адрес GUGiK отвечает текстом «Blad zapytania.» с кодом 200 — это «не найдено», а не сбой.
+  try {
+    const json = JSON.parse(await response.text()) as { results?: Record<string, GugikResult> | null };
+    return Object.values(json.results ?? {});
+  } catch {
+    return [];
+  }
+}
+
+function pointOf(r: GugikResult): Point | null {
+  const lat = Number(r.y);
+  const lng = Number(r.x);
+  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+}
+
+const sameCity = (r: GugikResult, a: PolishAddress) => r.city?.toLowerCase() === a.city.toLowerCase();
+
+export async function geocodeGugik(a: PolishAddress): Promise<Point | null> {
+  // С индексом: в Варшаве есть одноимённые улицы в разных районах (Piękna, Ptasia).
+  for (const r of await gugikResults(`${a.postalCode} ${a.city}, ${a.street} ${a.number}`)) {
+    if (!sameCity(r, a) || r.code !== a.postalCode) continue;
+    const p = pointOf(r);
+    if (p) return p;
   }
   return null;
+}
+
+/**
+ * Запасной поиск, когда у источника неточный индекс (kursarz: «Jana Pawła II 29, 00-566» вместо 00-867):
+ * без индекса, и берём адрес, только если он один с тем же началом индекса («00-…» — центр Варшавы,
+ * а одноимённая ulica Jana Pawła II 29 в Wesołej — «05-…»).
+ */
+export async function geocodeGugikLoose(a: PolishAddress): Promise<Point | null> {
+  if (!a.postalCode) return null;
+  const area = a.postalCode.slice(0, 2);
+  const matches = (await gugikResults(`${a.city}, ${a.street} ${a.number}`)).filter(
+    (r) => sameCity(r, a) && r.code?.slice(0, 2) === area,
+  );
+  return matches.length === 1 ? pointOf(matches[0]!) : null;
 }
 
 /** Публичный Nominatim: не больше 1 запроса в секунду (паузу держит вызывающий код). */

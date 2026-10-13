@@ -9,5 +9,6 @@ export const SOURCE_SITES: Record<string, { title: string; url: string }> = {
   myfin: { title: 'myfin.by', url: 'https://myfin.by/currency/minsk' },
   marketportal: { title: 'marketportal.pl', url: 'https://marketportal.pl/kantory' },
   exg: { title: 'exg.pl', url: 'https://www.exg.pl' },
+  kursarz: { title: 'kursarz.pl', url: 'https://kursarz.pl/kantory/kursy-walut.html' },
   sprawa: { title: 'kantorsprawa.pl', url: 'https://kantorsprawa.pl' },
 };

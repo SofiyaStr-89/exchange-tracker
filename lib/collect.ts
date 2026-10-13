@@ -3,6 +3,7 @@
 import { fetchExg, MAX_AGE_MS as EXG_MAX_AGE, SOURCE as EXG } from './adapters/exg.js';
 import { fetchKantorLive, SOURCE as KANTORLIVE } from './adapters/kantorlive.js';
 import { fetchMyfin, SOURCE as MYFIN } from './adapters/myfin.js';
+import { fetchKursarz, MAX_AGE_MS as KURSARZ_MAX_AGE, SOURCE as KURSARZ } from './adapters/kursarz.js';
 import { fetchMarketportal, MAX_AGE_MS as MARKETPORTAL_MAX_AGE, SOURCE as MARKETPORTAL } from './adapters/marketportal.js';
 import { fetchBelarusbank, SOURCE as BELARUSBANK } from './adapters/belarusbank.js';
 import { collectSites, MAX_AGE_MS as SITE_MAX_AGE, SOURCE as SITE } from './adapters/site.js';
@@ -32,6 +33,15 @@ export const ADAPTERS: Record<string, Adapter> = {
   [KANTORLIVE]: { country: 'PL', fetchCity: fetchKantorLive, primary: true },
   [EXG]: { country: 'PL', fetchCity: fetchExg, maxAgeMs: EXG_MAX_AGE },
   [MARKETPORTAL]: { country: 'PL', fetchCity: fetchMarketportal, maxAgeMs: MARKETPORTAL_MAX_AGE },
+  [KURSARZ]: {
+    country: 'PL',
+    fetchCity: (cityId) => {
+      const city = CITIES.find((c) => c.id === cityId);
+      if (!city) throw new Error(`Нет города ${cityId}`);
+      return fetchKursarz(city.name, city.id);
+    },
+    maxAgeMs: KURSARZ_MAX_AGE,
+  },
   [SPRAWA]: { country: 'PL', fetchCity: fetchSprawa },
   [BELARUSBANK]: {
     country: 'BY',

@@ -7,7 +7,7 @@ import { getDb } from '../lib/db/index.js';
 import { exchangers } from '../lib/db/schema.js';
 import { CITIES } from '../lib/cities.js';
 import { distanceMeters } from '../lib/geo.js';
-import { geocodeGugik, geocodeNominatim, geocodeNominatimBy, geocodePlaceBy, parsePolishAddress, placeNamesFromAddress, type Point } from '../lib/geocode.js';
+import { geocodeGugik, geocodeGugikLoose, geocodeNominatim, geocodeNominatimBy, geocodePlaceBy, parsePolishAddress, placeNamesFromAddress, type Point } from '../lib/geocode.js';
 import { byAddressKey, fetchOnlinerPoints } from '../lib/onliner.js';
 
 const PAUSE_MS = 1100; // Nominatim: не больше 1 запроса в секунду
@@ -36,6 +36,11 @@ for (const { id, address } of missing) {
     await sleep(PAUSE_MS);
     let point = await geocodeGugik(parsed);
     let via = 'GUGiK';
+    if (!point) {
+      await sleep(PAUSE_MS);
+      point = await geocodeGugikLoose(parsed);
+      via = 'GUGiK без индекса';
+    }
     if (!point) {
       await sleep(PAUSE_MS);
       point = await geocodeNominatim(parsed);

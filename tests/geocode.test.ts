@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { geocodeGugik, geocodeNominatim, parsePolishAddress, placeNamesFromAddress } from '../lib/geocode.js';
+import { geocodeGugik, geocodeGugikLoose, geocodeNominatim, parsePolishAddress, placeNamesFromAddress } from '../lib/geocode.js';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -81,6 +81,34 @@ describe('geocodeGugik', () => {
       vi.fn(async () => Response.json({ results: { '1': { city: 'Kraków', code: '00-819', x: '19.9', y: '50.0' } } })),
     );
     expect(await geocodeGugik(address)).toBeNull();
+  });
+});
+
+describe('geocodeGugikLoose', () => {
+  const jp2 = { street: 'Jana Pawła II', number: '29', postalCode: '00-566', city: 'Warszawa' };
+  const both = {
+    results: {
+      '1': { city: 'Warszawa', code: '05-077', x: '21.2424997427874', y: '52.218018872925' },
+      '2': { city: 'Warszawa', code: '00-867', x: '20.9953281939636', y: '52.2390191363433' },
+    },
+  };
+
+  it('неточный индекс: без индекса, единственный адрес с тем же началом индекса', async () => {
+    const fetchSpy = vi.fn(async (_url: string) => Response.json(both));
+    vi.stubGlobal('fetch', fetchSpy);
+    expect(await geocodeGugikLoose(jp2)).toEqual({ lat: 52.2390191363433, lng: 20.9953281939636 });
+    expect(new URL(fetchSpy.mock.calls[0]![0] as string).searchParams.get('address')).toBe('Warszawa, Jana Pawła II 29');
+  });
+
+  it('два адреса с тем же началом индекса — не угадываем', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ results: { ...both.results, '3': { city: 'Warszawa', code: '00-999', x: '21', y: '52.2' } } })));
+    expect(await geocodeGugikLoose(jp2)).toBeNull();
+  });
+
+  it('ответ «Blad zapytania.» — не найдено', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('Blad zapytania.')));
+    expect(await geocodeGugikLoose(jp2)).toBeNull();
+    expect(await geocodeGugik(jp2)).toBeNull();
   });
 });
 

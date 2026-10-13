@@ -109,7 +109,7 @@ for (const [map, names, cc] of [
   }
 }
 
-// Источники, у которых есть город: kantor.live и marketportal — по коду marketportal; exg и Sprawa — известные города.
+// Источники, у которых есть город: kantor.live и marketportal — по коду marketportal, kursarz — по id города; exg и Sprawa — известные города.
 const EXG = new Set(['warszawa']);
 const SPRAWA = new Set(['warszawa', 'wroclaw', 'lodz']);
 
@@ -121,7 +121,7 @@ for (const [slug, name] of plCities) {
     missing.push(`PL ${name}`);
     continue;
   }
-  const sources: Record<string, string> = { kantorlive: slug, marketportal: slug };
+  const sources: Record<string, string> = { kantorlive: slug, kursarz: `pl-${slug}`, marketportal: slug };
   if (EXG.has(slug)) sources.exg = slug;
   if (SPRAWA.has(slug)) sources.sprawa = slug;
   sources.site = `pl-${slug}`;

@@ -15,7 +15,7 @@ const GENERIC_WORDS = new Set([
   'отделение', 'обменныи', 'пункт', 'цбу', 'филиал', 'by',
 ]);
 /** Чьё название, адрес и координаты главнее при склейке: источники с курсами и проверенными адресами. */
-const SOURCE_PRIORITY = ['belarusbank', 'myfin', 'kantorlive', 'marketportal', 'exg', 'sprawa', 'site', 'osm'];
+const SOURCE_PRIORITY = ['belarusbank', 'myfin', 'kantorlive', 'marketportal', 'kursarz', 'exg', 'sprawa', 'site', 'osm'];
 
 const plain = (s: string) =>
   s
