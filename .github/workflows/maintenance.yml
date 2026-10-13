@@ -24,16 +24,25 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Без секрета базы обслуживание пропускается с пометкой, а не падает (и GitHub не шлёт письмо каждый час).
+      - name: Нет секрета DATABASE_URL — пропускаем
+        if: env.DATABASE_URL == ''
+        run: echo "::notice::Секрет DATABASE_URL не задан — обслуживание пропущено."
+      - uses: actions/checkout@v5
+        if: env.DATABASE_URL != ''
+      - uses: actions/setup-node@v5
+        if: env.DATABASE_URL != ''
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+        if: env.DATABASE_URL != ''
       - name: Еженедельно — списки из OpenStreetMap
-        if: github.event.schedule == '40 2 * * 1' || github.event_name == 'workflow_dispatch'
+        if: env.DATABASE_URL != '' && (github.event.schedule == '40 2 * * 1' || github.event_name == 'workflow_dispatch')
         run: npm run weekly
       - name: Координаты новых точек
+        if: env.DATABASE_URL != ''
         run: npm run geocode
       - name: Часы работы новых отделений myfin (не больше 150 страниц за запуск)
+        if: env.DATABASE_URL != ''
         run: npm run myfin-details -- 150
