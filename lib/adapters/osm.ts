@@ -1,24 +1,14 @@
 // Мастер-список обменников из OpenStreetMap (Overpass API): координаты, адрес, часы, контакты, без курсов.
 // Данные © OpenStreetMap contributors, ODbL — подпись на карте обязательна (SPEC: «Атрибуция»).
 
+import { overpass, type OsmElement } from '../overpass.js';
 import { parseOpeningHours } from '../opening-hours.js';
-import { USER_AGENT } from '../probe.js';
 import { isCryptoName, safeWebsite, type AdapterResult, type NormalizedExchanger } from './types.js';
 
 export const SOURCE = 'osm';
 /** Список меняется редко — пересобираем раз в неделю (SPEC: «Архитектура»). */
 export const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-const OVERPASS_ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-
-interface OsmElement {
-  type: 'node' | 'way' | 'relation';
-  id: number;
-  lat?: number;
-  lon?: number;
-  center?: { lat: number; lon: number };
-  tags?: Record<string, string>;
-}
 
 const CLOSED_WORDS = /zamkni[ęe]t|nieczynn|zlikwidowan|closed permanently|permanently closed/i;
 
@@ -92,25 +82,6 @@ export async function fetchOsm(cityName: string): Promise<AdapterResult> {
 area["boundary"="administrative"]["name"="${name}"]["admin_level"~"^(6|7|8)$"]->.city;
 nwr["amenity"="bureau_de_change"](area.city);
 out center tags;`;
-  let json: { elements?: OsmElement[] } | null = null;
-  const errors: string[] = [];
-  // Публичные серверы Overpass бывают перегружены (504) — пробуем следующий.
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ data: query }),
-        signal: AbortSignal.timeout(90_000),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      json = (await response.json()) as { elements?: OsmElement[] };
-      break;
-    } catch (err) {
-      errors.push(`${new URL(endpoint).host}: ${err instanceof Error ? err.message : err}`);
-    }
-  }
-  if (!json) throw new Error(`Overpass: ${errors.join('; ')}`);
-  if (!Array.isArray(json.elements)) throw new Error('Overpass: в ответе нет elements');
-  return parseOverpass({ elements: json.elements }, slugify(cityName), cityName);
+  const elements = await overpass(query);
+  return parseOverpass({ elements }, slugify(cityName), cityName);
 }

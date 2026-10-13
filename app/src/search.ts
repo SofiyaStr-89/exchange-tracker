@@ -2,6 +2,7 @@
 // места и адреса — Photon (по Польше и Беларуси, ближе к центру карты или к городу из «Город, место»);
 // Enter без подсказок — один запрос к Nominatim (у него подсказки при вводе запрещены правилами).
 
+import { hasCyrillic, reverse, toBelarusian, toRussian, type Dictionary } from '../../lib/by-words.js';
 import { CITIES_DATA } from '../../lib/cities-data.js';
 import { el } from './dom.js';
 import { t } from './i18n/index.js';
@@ -23,6 +24,29 @@ async function photon(query: string, near: { lat: number; lng: number }, signal:
   if (!res.ok) throw new Error(`Photon: HTTP ${res.status}`);
   const data = (await res.json()) as { features: Parameters<typeof photonToSuggestion>[0][] };
   return data.features.map(photonToSuggestion).filter((s): s is Suggestion => s !== null);
+}
+
+// Словарь улиц Беларуси грузим один раз и только когда в запросе кириллица (~200 КБ, в сжатом виде меньше).
+let byWords: Promise<{ dict: Dictionary; keys: string[]; back: Dictionary } | null> | null = null;
+function loadByWords() {
+  byWords ??= fetch('/by-words.json')
+    .then((r) => (r.ok ? (r.json() as Promise<Dictionary>) : null))
+    .then((dict) => (dict ? { dict, keys: Object.keys(dict), back: reverse(dict) } : null))
+    .catch(() => {
+      byWords = null; // без сети — попробуем в следующий раз
+      return null;
+    });
+  return byWords;
+}
+
+/** Русский запрос по Беларуси: ищем и как есть (магазины там часто по-русски), и в переводе на белорусский. */
+async function photonRu(query: string, near: { lat: number; lng: number }, signal: AbortSignal): Promise<Suggestion[]> {
+  const words = await loadByWords();
+  const be = words ? toBelarusian(query, words.dict, words.keys) : query;
+  if (!words || be === query) return photon(query, near, signal);
+  const [translated, original] = await Promise.all([photon(be, near, signal), photon(query, near, signal).catch(() => [])]);
+  const ru = (s: string | undefined) => (s ? toRussian(s, words.back) : s);
+  return [...translated, ...original].map((s) => ({ ...s, label: ru(s.label)!, ...(s.detail ? { detail: ru(s.detail) } : {}) }));
 }
 
 async function nominatim(query: string): Promise<Suggestion | null> {
@@ -87,7 +111,8 @@ export function createSearch(options: { getCenter: () => { lat: number; lng: num
     const local = citySuggestions(query, CITIES_DATA);
     const { city, rest } = splitCityQuery(query, CITIES_DATA);
     try {
-      const remote = await photon(rest, city ?? options.getCenter(), controller.signal);
+      const near = city ?? options.getCenter();
+      const remote = hasCyrillic(rest) ? await photonRu(rest, near, controller.signal) : await photon(rest, near, controller.signal);
       render(dedupeSuggestions([...(city ? [] : local), ...remote]).slice(0, 7), true);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
