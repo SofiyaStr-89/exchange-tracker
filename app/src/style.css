@@ -483,6 +483,79 @@ body {
   color: var(--muted);
 }
 
+/* Калькулятор (FR-30–FR-32) */
+.calc {
+  margin: 8px 0 12px;
+}
+
+.calc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calc-input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 18px; /* не меньше 16px — иначе iPhone увеличит страницу */
+}
+
+.calc-unit {
+  min-width: 36px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.calc-swap {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.calc-result {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Другие валюты (FR-29) */
+.other-currencies summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 14px;
+  margin: 8px 0;
+}
+
+.other-currencies table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.other-currencies th,
+.other-currencies td {
+  padding: 4px 6px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+.other-currencies th:first-child,
+.other-currencies td:first-child {
+  text-align: left;
+}
+
 .status-open {
   color: var(--ok);
   font-weight: 600;

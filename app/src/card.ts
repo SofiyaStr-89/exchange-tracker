@@ -4,12 +4,22 @@ import { COUNTRY_TIME_ZONE, nextOpening, openState } from '../../lib/hours.js';
 import { SOURCE_SITES } from '../../lib/sources.js';
 import type { ApiExchanger } from './api.js';
 import { el } from './dom.js';
-import { rateTime } from './rates.js';
-import { formatDistance, formatOpens, formatRate, formatUpdated, LOCAL_CURRENCY, staleLabel } from './format.js';
+import { rateTime, type ApiRate, type Mode } from './rates.js';
+import { calculate, parseAmount, type Direction } from './calculator.js';
+import { formatDistance, formatMoney, formatOpens, formatRate, formatUpdated, LOCAL_CURRENCY, staleLabel } from './format.js';
 import { fmt, t } from './i18n/index.js';
+
+export interface CalcState {
+  amount: string;
+  direction: Direction;
+}
 
 export interface CardOptions {
   currency: string;
+  mode: Mode;
+  /** Сумма калькулятора общая для всех карточек (FR-32). */
+  calc: CalcState;
+  onCalcChange: (calc: CalcState) => void;
   /** Расстояние до обменника и от чего оно посчитано (FR-28). */
   distance: { meters: number; fromUser: boolean };
   onClose: () => void;
@@ -36,6 +46,60 @@ function contacts(e: ApiExchanger): HTMLElement | null {
   return parts.length ? el('p', {}, ...parts) : null;
 }
 
+/** Калькулятор (FR-30–FR-32): поле суммы, кнопка смены направления, итог по курсу этого обменника. */
+function calculator(rate: ApiRate, currency: string, local: string, localCode: string, mode: Mode, state: CalcState, onChange: (c: CalcState) => void): HTMLElement {
+  const input = el('input', { className: 'calc-input' });
+  input.inputMode = 'decimal';
+  input.placeholder = '100';
+  input.value = state.amount;
+  input.setAttribute('aria-label', t.calcLabel);
+  const unit = el('span', { className: 'calc-unit' });
+  const swap = el('button', { className: 'calc-swap', text: '⇄' });
+  swap.type = 'button';
+  swap.title = t.calcSwap;
+  swap.setAttribute('aria-label', t.calcSwap);
+  const result = el('p', { className: 'calc-result' });
+  let direction = state.direction;
+
+  const update = () => {
+    unit.textContent = direction === 'foreign' ? currency : local;
+    const amount = parseAmount(input.value);
+    const out = calculate(amount, rate, mode, direction);
+    if (!input.value.trim()) result.textContent = '';
+    else if (!out) result.textContent = t.calcNoRate;
+    else {
+      const [from, to] = direction === 'foreign' ? [formatMoney(amount, currency), formatMoney(out.result, localCode)] : [formatMoney(amount, localCode), formatMoney(out.result, currency)];
+      const template = mode === 'buy' ? (direction === 'foreign' ? t.calcBuyForeign : t.calcBuyLocal) : direction === 'foreign' ? t.calcSellForeign : t.calcSellLocal;
+      result.textContent = fmt(template, { amount: from, result: to });
+    }
+  };
+  input.addEventListener('input', () => {
+    update();
+    onChange({ amount: input.value, direction });
+  });
+  swap.addEventListener('click', () => {
+    direction = direction === 'foreign' ? 'local' : 'foreign';
+    update();
+    onChange({ amount: input.value, direction });
+  });
+  update();
+  return el('div', { className: 'calc' }, el('div', { className: 'calc-row' }, input, unit, swap), result);
+}
+
+/** Остальные валюты обменника, свёрнуто (FR-29); подписи — с точки зрения пользователя (FR-12). */
+function otherCurrencies(e: ApiExchanger, currency: string, local: string): HTMLElement | null {
+  const codes = Object.keys(e.rates).filter((c) => c !== currency).sort();
+  if (!codes.length) return null;
+  const head = el('tr', {}, el('th', { text: t.colCurrency }), el('th', { text: fmt(t.buyLabel, { currency: '' }).trim() }), el('th', { text: fmt(t.sellLabel, { currency: '' }).trim() }));
+  const rows = codes.map((code) => {
+    const r = e.rates[code]!;
+    const cell = (v: number | null) => el('td', { text: v == null ? '—' : `${formatRate(v)} ${local}` });
+    return el('tr', {}, el('td', { text: code }), cell(r.sell), cell(r.buy));
+  });
+  const details = el('details', { className: 'other-currencies' }, el('summary', { text: fmt(t.otherCurrencies, { n: codes.length }) }), el('table', {}, el('thead', {}, head), el('tbody', {}, ...rows)));
+  return details;
+}
+
 function hoursLine(e: ApiExchanger, timeZone: string): { text: string; open: boolean; known: boolean } {
   const state = openState(e.hours, timeZone);
   if (!state.known) return { text: t.hoursUnknown, open: true, known: false };
@@ -45,7 +109,7 @@ function hoursLine(e: ApiExchanger, timeZone: string): { text: string; open: boo
   return { text, open: state.open, known: true };
 }
 
-export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, distance, onClose }: CardOptions): void {
+export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, mode, calc, onCalcChange, distance, onClose }: CardOptions): void {
   const timeZone = COUNTRY_TIME_ZONE[e.country] ?? 'Europe/Warsaw';
   const local = LOCAL_CURRENCY[e.country] ?? '';
   const rate = e.rates[currency];
@@ -77,6 +141,8 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
           el('div', {}, el('span', { className: 'muted', text: fmt(t.sellLabel, { currency }) }), el('strong', { text: value(rate.buy) })),
         )
       : el('p', { className: 'card-no-rate', text: hasAnyRate ? fmt(t.noRateForCurrency, { currency }) : t.noRatePublished }),
+    rate ? calculator(rate, currency, local, e.country === 'PL' ? 'zł' : 'BYN', mode, calc, onCalcChange) : null,
+    otherCurrencies(e, currency, local),
     el(
       'p',
       {},

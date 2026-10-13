@@ -49,3 +49,11 @@ export function staleLabel(r: ApiRate, timeZone: string, now = new Date()): stri
   const at = rateTime(r);
   return day(at) === day(new Date(now.getTime() - DAY_MS)) ? t.rateFromYesterday : fmt(t.rateFromDate, { date: day(at) });
 }
+
+const SYMBOLS: Record<string, string> = { USD: '$', EUR: '€', GBP: '£' };
+const moneyFormat = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** «500,00 $», «1 960,00 zł» — сумма с символом или кодом валюты. */
+export function formatMoney(amount: number, currency: string): string {
+  return `${moneyFormat.format(amount)} ${SYMBOLS[currency] ?? currency}`;
+}

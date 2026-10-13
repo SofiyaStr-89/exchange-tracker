@@ -6,7 +6,7 @@ import { isTooLarge, type Bounds } from '../../lib/bounds.js';
 import { distanceMeters } from '../../lib/geo.js';
 import { COUNTRY_TIME_ZONE, nextOpening, openState } from '../../lib/hours.js';
 import { fetchExchangers, type ApiExchanger } from './api.js';
-import { renderCard } from './card.js';
+import { renderCard, type CalcState } from './card.js';
 import { countryAt, currencyName, loadCurrencies, type Country } from './currencies.js';
 import { el } from './dom.js';
 import { formatDistance, formatOpens, formatRate, staleLabel } from './format.js';
@@ -37,6 +37,8 @@ const state = {
   mode: load<Mode>('mode', 'buy') === 'sell' ? ('sell' as Mode) : ('buy' as Mode),
   // FR-19: по умолчанию только открытые сейчас.
   openOnly: load<boolean>('openOnly', true) !== false,
+  // FR-32: сумма калькулятора общая для всех карточек и запоминается.
+  calc: load<CalcState>('calcAmount', { amount: '', direction: 'foreign' }),
   country: 'PL' as Country,
   exchangers: [] as ApiExchanger[],
   nearest: [] as ApiExchanger[],
@@ -142,6 +144,12 @@ function openCard(e: ApiExchanger): void {
   const from = state.user ?? map.getCenter();
   renderCard(card, e, {
     currency: state.currency,
+    mode: state.mode,
+    calc: state.calc,
+    onCalcChange: (calc) => {
+      state.calc = calc;
+      save('calcAmount', calc);
+    },
     distance: { meters: distanceMeters(from, e), fromUser: state.user !== null },
     onClose: closeCard,
   });
