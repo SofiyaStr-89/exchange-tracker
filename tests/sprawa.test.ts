@@ -42,3 +42,19 @@ describe('parseSprawa (вёрстка с 13.10.2026)', () => {
     expect(parseShortHours('Wtorek', '8:00', '20:00')).toBeNull();
   });
 });
+
+describe('parseSprawa: Лодзь — часы отдельным полем', () => {
+  const lodz = parseSprawa(readFileSync(new URL('./fixtures/sprawa-lodz-sample.html', import.meta.url), 'utf8'), 'lodz');
+
+  it('точка с часами из поля working-hours', () => {
+    expect(lodz.exchangers).toEqual([
+      expect.objectContaining({
+        id: 'pl-lodz-sprawa-piotrkowska-213',
+        address: 'ul. Piotrkowska 213, Łódź',
+        city: 'Łódź',
+        hours: expect.objectContaining({ mon: ['08:00', '21:00'], sun: ['08:00', '21:00'] }),
+      }),
+    ]);
+    expect(lodz.rates.find((r) => r.currency === 'USD')).toMatchObject({ buy: 3.87, sell: 3.91 });
+  });
+});

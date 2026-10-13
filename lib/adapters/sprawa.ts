@@ -44,7 +44,18 @@ const POINT = /((?:ul|al)\.[^<>\n\\]{3,80}?) - (Pon[–-](?:Pt|Sob|Nd)):\s*(\d{1
 function cityPoints(html: string, citySlug: string): string {
   const at = html.indexOf(`\\"slug\\":\\"${citySlug}\\"`);
   if (at < 0) return '';
-  return html.slice(at).match(/\\"address\\":\\"([^"]*?)\\"/)?.[1]?.replace(/\\\\n/g, '\n') ?? '';
+  const field = (name: string) =>
+    html.slice(at, at + 3000).match(new RegExp(`\\\\"${name}\\\\":\\\\"([^"]*?)\\\\"`))?.[1]?.replace(/\\\\n/g, '\n') ?? '';
+  const address = field('address');
+  // Лодзь: часы отдельным полем («Pon-Nd:\n8:00 - 21:00»), в адресе только улица — склеиваем в «улица - часы».
+  const hours = field('working-hours').replace(/\s+/g, ' ').trim();
+  if (address.search(POINT) >= 0 || !hours) return address;
+  return address
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `${line} - ${hours.replace(/:\s*/, ': ')}`)
+    .join('\n');
 }
 const ROW =
   /table-body-name__\w+">([A-Z]{3})<span[^>]*>([^<]*)<\/span><\/span><\/div><div[^>]*>([\d.]*)<\/div><div[^>]*>([\d.]*)</g;
