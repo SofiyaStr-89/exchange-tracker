@@ -29,6 +29,7 @@ interface MapView {
   lat: number;
   lng: number;
   zoom: number;
+  bearing?: number;
 }
 type Point = { lat: number; lng: number };
 
@@ -76,6 +77,15 @@ locateButton.title = t.toMe;
 locateButton.innerHTML =
   '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M21 3 3 10.5l7.2 2.3L12.5 20z" fill="currentColor"/></svg>';
 
+// Компас: виден, когда карта повёрнута; нажатие — обратно на север.
+const compassButton = el('button', { className: 'locate compass' });
+compassButton.type = 'button';
+compassButton.setAttribute('aria-label', t.north);
+compassButton.title = t.north;
+compassButton.innerHTML =
+  '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2 16 12H8z" fill="#dc2626"/><path d="M12 22 8 12h8z" fill="currentColor" opacity=".45"/></svg>';
+compassButton.hidden = true;
+
 const hint = el('div', { className: 'banner banner-warn' }); // подсказка про геолокацию (FR-2)
 const notice = el('div', { className: 'banner' }); // состояние области: пусто, приблизьте…
 hint.hidden = notice.hidden = true;
@@ -105,7 +115,7 @@ favoritesButton.addEventListener('click', () => {
   closeCard();
   favoritesScreen.show();
 });
-const bottom = el('div', { className: 'bottom' }, el('div', { className: 'bottom-chips' }, openOnlyButton, favoritesButton), refreshBadge, locateButton);
+const bottom = el('div', { className: 'bottom' }, el('div', { className: 'bottom-chips' }, openOnlyButton, favoritesButton), refreshBadge, el('div', { className: 'bottom-right' }, compassButton, locateButton));
 const card = el('section', { className: 'card' });
 card.hidden = true;
 app.replaceChildren(mapEl, top, bottom, card, favoritesScreen.element);
@@ -130,7 +140,14 @@ function showGeoHint(): void {
 }
 
 const lastView = load<MapView | null>('lastMapView', null);
-const map = L.map(mapEl, { zoomControl: false }).setView(lastView ?? WARSAW_CENTER, lastView?.zoom ?? DEFAULT_ZOOM);
+const map = L.map(mapEl, {
+  zoomControl: false,
+  // Поворот двумя пальцами (и правой кнопкой мыши на компьютере); свой компас вместо кнопки плагина.
+  rotate: true,
+  touchRotate: true,
+  rotateControl: false,
+  bearing: lastView?.bearing ?? 0,
+}).setView(lastView ?? WARSAW_CENTER, lastView?.zoom ?? DEFAULT_ZOOM);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: t.mapAttribution }).addTo(map);
 map.attributionControl.setPrefix(false);
 const plates = createClusterGroup(() => state.mode).addTo(map);
@@ -148,11 +165,31 @@ function scheduleLoad(): void {
   loadTimer = setTimeout(() => void loadView(), LOAD_DELAY_MS);
 }
 
-map.on('moveend', () => {
+function saveView(): void {
   const c = map.getCenter();
-  save('lastMapView', { lat: c.lat, lng: c.lng, zoom: map.getZoom() } satisfies MapView);
+  save('lastMapView', { lat: c.lat, lng: c.lng, zoom: map.getZoom(), bearing: map.getBearing() } satisfies MapView);
+}
+
+map.on('moveend', () => {
+  saveView();
   scheduleLoad();
 });
+
+function renderCompass(): void {
+  const bearing = map.getBearing();
+  compassButton.hidden = Math.abs(bearing) < 0.5 || Math.abs(bearing - 360) < 0.5;
+  // Стрелка смотрит на север: карта повёрнута на bearing по часовой — стрелка на столько же.
+  compassButton.querySelector('svg')!.style.transform = `rotate(${bearing}deg)`;
+}
+
+// После поворота видимая область другая — подгрузить (через ту же паузу 0,5 с).
+map.on('rotate', () => {
+  renderCompass();
+  saveView();
+  scheduleLoad();
+});
+compassButton.addEventListener('click', () => map.setBearing(0));
+renderCompass();
 map.on('click', () => closeCard());
 
 function closeCard(): void {

@@ -39,6 +39,7 @@ export const ru = {
   you: 'Вы здесь',
 
   close: 'Закрыть',
+  north: 'Повернуть на север',
   favorites: 'Избранное',
   favoritesTitle: 'Избранное',
   favoritesEmpty: 'Пока пусто. Отметьте обменник звёздочкой ☆ в его карточке.',

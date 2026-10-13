@@ -197,7 +197,7 @@ body {
   bottom: calc(26px + env(safe-area-inset-bottom));
   z-index: 999;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
   pointer-events: none;
@@ -220,6 +220,20 @@ body {
   cursor: pointer;
 }
 
+.bottom-right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.compass[hidden] {
+  display: none;
+}
+
+.compass svg {
+  transition: transform 0.1s linear;
+}
+
 .locate-busy svg {
   animation: pulse 1s ease-in-out infinite;
 }
@@ -232,7 +246,8 @@ body {
 
 .chip {
   height: 40px;
-  padding: 0 12px;
+  white-space: nowrap;
+  padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
@@ -495,6 +510,7 @@ body {
 /* Избранное (FR-18, FR-33, FR-34) */
 .bottom-chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 

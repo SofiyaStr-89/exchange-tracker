@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
+    "@tomickigrzegorz/leaflet-rotate": "^0.3.0",
     "@vercel/functions": "^3.9.11",
     "drizzle-orm": "^0.45.4",
     "leaflet": "^1.9.4",
