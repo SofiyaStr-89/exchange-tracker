@@ -32,6 +32,7 @@
     "@types/node": "^26.6.4",
     "dotenv": "^18.0.6",
     "drizzle-kit": "^0.31.11",
+    "osm-pbf-parser-node": "^1.1.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",

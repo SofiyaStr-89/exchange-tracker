@@ -4,8 +4,9 @@ import { USER_AGENT } from './probe.js';
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
+  // kumi 13.10.2026 часами не отвечал, private.coffee отвечал (медленно) — он раньше.
   'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
 ];
 
 export interface OsmElement {
