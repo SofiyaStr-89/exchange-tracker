@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate",
     "geocode": "tsx --env-file-if-exists=.env.local collector/geocode.ts",
     "build-by-words": "tsx collector/build-by-words.ts",
+    "check-health": "tsx --env-file-if-exists=.env.local collector/check-health.ts",
     "check-coords": "tsx --env-file-if-exists=.env.local collector/check-coords.ts",
     "stats": "tsx --env-file-if-exists=.env.local collector/stats.ts",
     "try-parse": "tsx collector/try-parse.ts",

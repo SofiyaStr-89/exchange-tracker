@@ -1,11 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { mergeDuplicates, similarNames, type Mergeable } from '../lib/merge.js';
+import { addressKey, mergeDuplicates, similarNames, type Mergeable } from '../lib/merge.js';
 
 const base = { country: 'PL', city: 'Warszawa', bank: null, hours: null, phone: null, website: null };
 const p = (id: string, name: string, address: string, lat: number, lng: number, sources: string[], rates: Mergeable['rates'] = {}) => ({
   ...base, id, name, address, lat, lng, sources, rates,
 });
 const usd = { USD: { buy: 3.8, sell: 3.9, rateUpdatedAt: null, confirmedAt: new Date('2026-10-08T15:00:00Z'), source: 'kantorlive' } };
+
+describe('названия сетей', () => {
+  it('«KantorTrust» = «Kantor Trust», «Exchange Group – X» = «EXG X»', () => {
+    expect(similarNames('KantorTrust - Warszawa', 'Kantor Trust', new Set(['warszawa']))).toBe(true);
+    expect(similarNames('Exchange Group - Galeria Rembielińska - Warszawa', 'EXG Renova Rembielińska', new Set(['warszawa']))).toBe(true);
+    expect(similarNames('Exchange Group - Tesco Górczewska', 'Kantor Tavex Arkadia')).toBe(false);
+  });
+});
+
+describe('сеть по одному адресу', () => {
+  it('EXG с разными названиями торгового центра по одному адресу — один обменник', () => {
+    const merged = mergeDuplicates([
+      p('kz-1', 'Exchange Group - Galeria Rembielińska - Warszawa', 'Rembielińska 20, 03-352 Warszawa', 52.2893, 21.0304, ['kursarz'], usd),
+      p('exg-1', 'EXG Renova Rembielińska', 'Rembielińska 20, 03-352 Warszawa', 52.2894, 21.0306, ['exg']),
+    ]);
+    expect(merged).toHaveLength(1);
+  });
+
+  it('разные сети в одном торговом центре — разные', () => {
+    const merged = mergeDuplicates([
+      p('a', 'Kantor Tavex Arkadia', 'al. Jana Pawła II 82, 00-175 Warszawa', 52.2564, 20.9823, ['kantorlive']),
+      p('b', 'Kantor Wiek II - Centrum Handlowe Arkadia', 'Jana Pawła II 82, 00-175 Warszawa', 52.2564, 20.9823, ['kursarz']),
+    ]);
+    expect(merged).toHaveLength(2);
+  });
+});
+
+describe('addressKey', () => {
+  it('номер дома отдельной частью через запятую', () => {
+    expect(addressKey('Puławska, 2, 02-566 Warszawa')).toBe(addressKey('ul. Puławska 2 (poziom -1), Warszawa'));
+    expect(addressKey('Puławska, 02-566 Warszawa')).toBe('');
+  });
+});
 
 describe('similarNames', () => {
   it('без слова kantor, регистра и диакритики', () => {

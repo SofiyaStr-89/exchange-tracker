@@ -14,6 +14,16 @@ const GENERIC_WORDS = new Set([
   'kantor', 'kantory', 'wymiany', 'walut', 'exchange', 'calodobowy', 'calodobowo', '24h', 'pl', 'com', 'eu', 'www',
   'отделение', 'обменныи', 'пункт', 'цбу', 'филиал', 'by',
 ]);
+/**
+ * Сети, у которых по одному адресу один пункт, а торговый центр источники называют по-разному
+ * («Exchange Group - Galeria Rembielińska» и «EXG Renova Rembielińska»): одна сеть + один адрес = один обменник.
+ */
+const CHAINS = new Set(['exg', 'tavex']);
+const sameChain = (a: string, b: string) => {
+  const ta = nameTokens(a);
+  return [...nameTokens(b)].some((w) => CHAINS.has(w) && ta.has(w));
+};
+
 /** Чьё название, адрес и координаты главнее при склейке: источники с курсами и проверенными адресами. */
 const SOURCE_PRIORITY = ['belarusbank', 'myfin', 'kantorlive', 'marketportal', 'kursarz', 'exg', 'sprawa', 'site', 'osm'];
 
@@ -29,9 +39,12 @@ const words = (text: string) => plain(text).split(/[^\p{L}\p{N}]+/u).filter((w) 
 
 /** Слова названия без общих слов и без слов из адреса/города («Kantor Klonowa 22» → пусто, «Respol24h» → «respol»). */
 function nameTokens(name: string, ignore: Set<string> = new Set()): Set<string> {
+  // «Exchange Group» — полное имя сети EXG (kursarz пишет так, exg.pl и kantor.live — «EXG»).
+  const text = name.replace(/24\s*h\b/gi, ' ').replace(/\bexchange\s+group\b/gi, 'EXG');
   return new Set(
-    words(name.replace(/24\s*h\b/gi, ' '))
-      .map((w) => w.replace(/24h$/, ''))
+    words(text)
+      // «KantorTrust» — «kantor» слитно с названием.
+      .map((w) => w.replace(/24h$/, '').replace(/^kantor(?=[a-z]{3,})/, ''))
       .filter((w) => w.length > 1 && !GENERIC_WORDS.has(w) && !ignore.has(w)),
   );
 }
@@ -52,7 +65,10 @@ export function addressKey(address: string): string {
     prev = text;
     text = text.replace(/\([^()]*\)/g, ' ');
   }
-  const first = plain(text.split(',')[0] ?? '')
+  const parts = text.split(',');
+  // «Puławska, 2, 02-566 Warszawa» (kantor.live) — номер дома отдельной частью.
+  const head = !/\d/.test(parts[0] ?? '') && /^\s*\d+[a-z]?(\/\d+[a-z]?)?\s*$/i.test(parts[1] ?? '') ? `${parts[0]} ${parts[1]}` : (parts[0] ?? '');
+  const first = plain(head)
     .replace(/^(ul|al|pl|os)\.\s*/, '')
     .replace(/^(ulica|aleja|aleje|plac)\s+/, '')
     .replace(/\s+/g, ' ')
@@ -92,7 +108,7 @@ export function mergeDuplicates<T extends Mergeable>(items: T[]): T[] {
       if (!(sameAddress || d <= NEAR_M)) continue;
       // Слова из адресов обоих не считаются частью названия: «Tavex Klif» в «Galeria Klif» — это Tavex.
       const ignore = new Set([...words(a.address), ...words(b.address), ...words(a.city ?? ''), ...words(b.city ?? '')]);
-      if (similarNames(a.name, b.name, ignore)) parent[find(i)] = find(j);
+      if (similarNames(a.name, b.name, ignore) || (sameAddress && sameChain(a.name, b.name))) parent[find(i)] = find(j);
     }
   }
 

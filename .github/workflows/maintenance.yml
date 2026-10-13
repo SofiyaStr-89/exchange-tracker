@@ -50,3 +50,6 @@ jobs:
       - name: Часы работы новых отделений myfin (не больше 500 страниц за ночь, ~25 минут)
         if: env.DATABASE_URL != ''
         run: npm run myfin-details -- 500
+      - name: Проверка источников — сломанный источник роняет запуск, GitHub пришлёт письмо
+        if: always() && env.DATABASE_URL != ''
+        run: npm run check-health

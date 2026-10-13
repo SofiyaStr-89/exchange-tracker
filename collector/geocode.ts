@@ -2,12 +2,13 @@
 // Польша: GUGiK → Nominatim. Беларусь: kurs.onliner.by (Минск, по ключу адреса) → Nominatim.
 // npm run geocode. Запросы последовательные, с паузой.
 
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import { getDb } from '../lib/db/index.js';
 import { exchangers } from '../lib/db/schema.js';
 import { CITIES } from '../lib/cities.js';
 import { distanceMeters } from '../lib/geo.js';
 import { geocodeGugik, geocodeGugikLoose, geocodeNominatim, geocodeNominatimBy, geocodePlaceBy, parsePolishAddress, placeNamesFromAddress, type Point } from '../lib/geocode.js';
+import { addressKey } from '../lib/merge.js';
 import { byAddressKey, fetchOnlinerPoints } from '../lib/onliner.js';
 
 const PAUSE_MS = 1100; // Nominatim: не больше 1 запроса в секунду
@@ -16,14 +17,36 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const db = getDb();
 // ——— Польша ———
 const missing = await db
-  .select({ id: exchangers.id, address: exchangers.address })
+  .select({ id: exchangers.id, city: exchangers.city, address: exchangers.address })
   .from(exchangers)
   .where(and(eq(exchangers.country, 'PL'), isNull(exchangers.lat)));
 
 const cache = new Map<string, { point: Point | null; via: string }>();
-const stats = { gugik: 0, nominatim: 0, notFound: 0, noNumber: 0 };
+const stats = { gugik: 0, nominatim: 0, notFound: 0, noNumber: 0, twin: 0 };
 
-for (const { id, address } of missing) {
+// Сосед по адресу: у другого источника тот же kantor уже с координатами (Sprawa без индекса — у kursarz и OSM).
+const placed = await db
+  .select({ city: exchangers.city, address: exchangers.address, lat: exchangers.lat, lng: exchangers.lng })
+  .from(exchangers)
+  .where(and(eq(exchangers.country, 'PL'), isNotNull(exchangers.lat)));
+const twinKey = (city: string, address: string) => {
+  const k = addressKey(address);
+  return k ? `${city.toLowerCase()}|${k}` : '';
+};
+const twins = new Map<string, Point>();
+for (const p of placed) {
+  const k = twinKey(p.city, p.address);
+  if (k && !twins.has(k)) twins.set(k, { lat: p.lat!, lng: p.lng! });
+}
+
+for (const { id, city, address } of missing) {
+  const twin = twins.get(twinKey(city, address));
+  if (twin) {
+    await db.update(exchangers).set({ lat: twin.lat, lng: twin.lng, coordsSource: 'geocoder' }).where(eq(exchangers.id, id));
+    stats.twin++;
+    console.log(`↔ по соседу с тем же адресом: ${address} → ${twin.lat.toFixed(5)}, ${twin.lng.toFixed(5)}`);
+    continue;
+  }
   const parsed = parsePolishAddress(address);
   if (!parsed) {
     stats.noNumber++;
