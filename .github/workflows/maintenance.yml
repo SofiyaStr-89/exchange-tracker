@@ -1,12 +1,13 @@
 # Обслуживание данных (SPEC: «Архитектура»):
-# каждый час — координаты новых точек и часы работы новых отделений myfin (если таких нет — запросов нет);
+# каждую ночь — координаты новых точек и часы работы новых отделений myfin (если таких нет — запросов нет);
 # раз в неделю — пересборка списков обменников из OpenStreetMap.
+# Раз в сутки, а не чаще: каждый запуск будит базу Neon (лимит бесплатных часов вычислений).
 # Нужен секрет репозитория DATABASE_URL (Settings → Secrets and variables → Actions).
 name: Обслуживание данных
 
 on:
   schedule:
-    - cron: '17 * * * *' # каждый час
+    - cron: '20 1 * * *' # каждую ночь, 01:20 UTC (03:20 Варшава, 04:20 Минск)
     - cron: '40 2 * * 1' # понедельник 02:40 UTC
   workflow_dispatch:
 
@@ -20,7 +21,7 @@ concurrency:
 jobs:
   maintain:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
@@ -43,6 +44,6 @@ jobs:
       - name: Координаты новых точек
         if: env.DATABASE_URL != ''
         run: npm run geocode
-      - name: Часы работы новых отделений myfin (не больше 150 страниц за запуск)
+      - name: Часы работы новых отделений myfin (не больше 500 страниц за ночь, ~25 минут)
         if: env.DATABASE_URL != ''
-        run: npm run myfin-details -- 150
+        run: npm run myfin-details -- 500
