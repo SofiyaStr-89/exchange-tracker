@@ -6,3 +6,4 @@ dist/
 recon/raw/
 .env
 .env*.local
+.playwright-mcp/

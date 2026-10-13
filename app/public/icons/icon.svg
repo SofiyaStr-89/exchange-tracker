@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#2563eb"/>
+  <!-- метка на карте -->
+  <path d="M256 72c-84 0-152 66-152 148 0 108 152 236 152 236s152-128 152-236c0-82-68-148-152-148z" fill="#fff"/>
+  <!-- обмен: две встречные стрелки -->
+  <g fill="none" stroke="#2563eb" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M182 186h132"/>
+    <path d="M276 148l38 38-38 38"/>
+    <path d="M330 262H198"/>
+    <path d="M236 224l-38 38 38 38"/>
+  </g>
+</svg>

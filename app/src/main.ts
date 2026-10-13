@@ -272,7 +272,7 @@ async function loadView(attempt = 0): Promise<void> {
   } catch {
     if (seq !== requestSeq) return;
     refreshBadge.hidden = true;
-    setNotice(t.loadError);
+    setNotice(navigator.onLine ? t.loadError : t.offline);
   }
 }
 
@@ -354,6 +354,14 @@ async function start(): Promise<void> {
     setNotice(t.loading);
   }
   scheduleLoad();
+}
+
+// Сеть вернулась — догрузить область.
+window.addEventListener('online', () => scheduleLoad());
+
+// Шаг 12: офлайн-оболочка. В разработке не регистрируем, чтобы кэш не мешал правкам.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
 
 void start();

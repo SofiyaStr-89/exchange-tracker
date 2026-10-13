@@ -52,7 +52,7 @@ function contacts(e: ApiExchanger): HTMLElement | null {
 }
 
 /** Калькулятор (FR-30–FR-32): поле суммы, кнопка смены направления, итог по курсу этого обменника. */
-function calculator(rate: ApiRate, currency: string, local: string, localCode: string, mode: Mode, state: CalcState, onChange: (c: CalcState) => void): HTMLElement {
+function calculator(rate: ApiRate, currency: string, local: string, mode: Mode, state: CalcState, onChange: (c: CalcState) => void): HTMLElement {
   const input = el('input', { className: 'calc-input' });
   input.inputMode = 'decimal';
   input.placeholder = '100';
@@ -73,7 +73,7 @@ function calculator(rate: ApiRate, currency: string, local: string, localCode: s
     if (!input.value.trim()) result.textContent = '';
     else if (!out) result.textContent = t.calcNoRate;
     else {
-      const [from, to] = direction === 'foreign' ? [formatMoney(amount, currency), formatMoney(out.result, localCode)] : [formatMoney(amount, localCode), formatMoney(out.result, currency)];
+      const [from, to] = direction === 'foreign' ? [formatMoney(amount, currency), formatMoney(out.result, local)] : [formatMoney(amount, local), formatMoney(out.result, currency)];
       const template = mode === 'buy' ? (direction === 'foreign' ? t.calcBuyForeign : t.calcBuyLocal) : direction === 'foreign' ? t.calcSellForeign : t.calcSellLocal;
       result.textContent = fmt(template, { amount: from, result: to });
     }
@@ -179,7 +179,7 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
           el('div', {}, el('span', { className: 'muted', text: fmt(t.sellLabel, { currency }) }), el('strong', { text: value(rate.buy) })),
         )
       : el('p', { className: 'card-no-rate', text: hasAnyRate ? fmt(t.noRateForCurrency, { currency }) : t.noRatePublished }),
-    rate ? calculator(rate, currency, local, e.country === 'PL' ? 'zł' : 'BYN', mode, calc, onCalcChange) : null,
+    rate ? calculator(rate, currency, local, mode, calc, onCalcChange) : null,
     otherCurrencies(e, currency, local),
     el(
       'p',
