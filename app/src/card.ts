@@ -8,6 +8,8 @@ import { rateTime, type ApiRate, type Mode } from './rates.js';
 import { calculate, parseAmount, type Direction } from './calculator.js';
 import { formatDistance, formatMoney, formatOpens, formatRate, formatUpdated, LOCAL_CURRENCY, staleLabel } from './format.js';
 import { fmt, t } from './i18n/index.js';
+import { detectPlatform, mapsAppFor, routeUrl, type MapsApp } from './route.js';
+import { load, save } from './storage.js';
 
 export interface CalcState {
   amount: string;
@@ -100,6 +102,31 @@ function otherCurrencies(e: ApiExchanger, currency: string, local: string): HTML
   return details;
 }
 
+/** «Маршрут» (FR-36); на iPhone под кнопкой — выбор Apple Maps / Google Maps (запоминается в mapsApp). */
+function routeBlock(e: ApiExchanger): HTMLElement {
+  const platform = detectPlatform(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
+  const button = link(t.route, '');
+  button.className = 'route-button';
+  const wrap = el('div', { className: 'route' }, button);
+  const toggle = platform === 'ios' ? el('button', { className: 'route-app' }) : null;
+  const update = () => {
+    const app = mapsAppFor(platform, load<MapsApp | null>('mapsApp', null));
+    button.href = routeUrl(app, e.lat, e.lng);
+    if (toggle) toggle.textContent = app === 'apple' ? t.routeInGoogle : t.routeInApple;
+  };
+  if (toggle) {
+    toggle.type = 'button';
+    toggle.addEventListener('click', () => {
+      const current = mapsAppFor(platform, load<MapsApp | null>('mapsApp', null));
+      save('mapsApp', current === 'apple' ? 'google' : 'apple');
+      update();
+    });
+    wrap.append(toggle);
+  }
+  update();
+  return wrap;
+}
+
 function hoursLine(e: ApiExchanger, timeZone: string): { text: string; open: boolean; known: boolean } {
   const state = openState(e.hours, timeZone);
   if (!state.known) return { text: t.hoursUnknown, open: true, known: false };
@@ -132,6 +159,7 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
     closeButton,
     el('h2', { text: e.name }),
     el('p', { className: 'muted', text: e.bank && e.bank !== e.name ? `${e.bank} · ${e.address}` : e.address }),
+    routeBlock(e),
     rate
       ? el(
           'div',

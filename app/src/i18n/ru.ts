@@ -38,6 +38,9 @@ export const ru = {
   you: 'Вы здесь',
 
   close: 'Закрыть',
+  route: 'Маршрут',
+  routeInGoogle: 'Открывать в Google Maps',
+  routeInApple: 'Открывать в Apple Maps',
   calcLabel: 'Сумма',
   calcSwap: 'Поменять направление',
   calcBuyForeign: 'Покупаю {amount} → заплачу {result}',
