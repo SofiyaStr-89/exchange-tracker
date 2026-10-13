@@ -130,6 +130,8 @@ export async function fetchKantorLive(citySlug: string): Promise<AdapterResult> 
     headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
     signal: AbortSignal.timeout(20_000),
   });
+  // 404 — у kantor.live нет такого города (посёлки из списка marketportal): это пустой город, а не сбой.
+  if (response.status === 404) return { exchangers: [], rates: [] };
   if (!response.ok) throw new Error(`kantor.live: HTTP ${response.status}`);
   const json = (await response.json()) as KlResponse;
   if (!Array.isArray(json?.data?.kantors)) throw new Error('kantor.live: в ответе нет списка kantors');
