@@ -4,6 +4,8 @@ export const ru = {
   locale: 'ru',
   appTitle: 'Карта обменников',
   currencyLabel: 'Валюта',
+  searchPlaceholder: 'Город, адрес или место',
+  searchNothing: 'Ничего не нашлось',
   modeBuy: 'Покупаю',
   modeSell: 'Продаю',
   modeLabel: 'Что делаю',

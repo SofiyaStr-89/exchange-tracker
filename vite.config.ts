@@ -31,6 +31,8 @@ function localApi(): Plugin {
           response.headers.forEach((value, key) => res.setHeader(key, value));
           res.end(Buffer.from(await response.arrayBuffer()));
         } catch (err) {
+          // Браузер оборвал запрос (карту уже сдвинули) — это не ошибка, просто не отвечаем.
+          if (req.destroyed || (err as Error).message === 'aborted') return;
           next(err);
         }
       });

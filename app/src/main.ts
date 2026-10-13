@@ -12,6 +12,7 @@ import { el } from './dom.js';
 import { formatDistance, formatOpens, formatRate, staleLabel } from './format.js';
 import { fmt, t } from './i18n/index.js';
 import { locate } from './locate.js';
+import { createSearch } from './search.js';
 import { bestIds, isFresh, rateFor, type Mode } from './rates.js';
 import { load, save } from './storage.js';
 
@@ -72,7 +73,15 @@ locateButton.innerHTML =
 const hint = el('div', { className: 'banner banner-warn' }); // подсказка про геолокацию (FR-2)
 const notice = el('div', { className: 'banner' }); // состояние области: пусто, приблизьте…
 hint.hidden = notice.hidden = true;
-top.append(controls, hint, notice);
+// FR-25–FR-27: поиск города, адреса или места; выбор переносит карту туда (подгрузка — по moveend).
+const search = createSearch({
+  getCenter: () => map.getCenter(),
+  onSelect: (s) => {
+    closeCard();
+    map.setView([s.lat, s.lng], DEFAULT_ZOOM);
+  },
+});
+top.append(search, controls, hint, notice);
 const refreshBadge = el('div', { className: 'refresh-badge', text: t.refreshing });
 refreshBadge.hidden = true;
 const bottom = el('div', { className: 'bottom' }, openOnlyButton, refreshBadge, locateButton);
