@@ -1,6 +1,7 @@
 // Геокодирование польских адресов kantorów (правило склейки 3):
 // GUGiK UUG (официальные адресные точки PRG) → Nominatim. Результат хранится в базе навсегда.
 
+import { byAddressKey } from './onliner.js';
 import { USER_AGENT } from './probe.js';
 
 export interface PolishAddress {
@@ -117,21 +118,50 @@ export async function geocodeNominatim(a: PolishAddress): Promise<Point | null> 
   return { lat: Number(first.lat), lng: Number(first.lon) };
 }
 
-/** Белорусский адрес через публичный Nominatim (1 запрос в секунду — паузу держит вызывающий код). */
-export async function geocodeNominatimBy(address: string, city: string): Promise<Point | null> {
+interface NominatimHit {
+  lat: string;
+  lon: string;
+  addresstype?: string;
+  address?: Record<string, string | undefined>;
+}
+
+const plainRu = (s: string) => s.toLowerCase().replace(/ё/g, 'е');
+
+/**
+ * Совпадает ли ответ Nominatim с адресом: ключ «московская 208» — номер дома начинается с 208, улица содержит «москов».
+ * Без проверки Nominatim на «Московская, 208-1» возвращал точку в 4 км (Брест, ВТБ).
+ */
+export function hitMatchesKey(hit: NominatimHit, key: string): boolean {
+  const m = key.match(/^(.*\S)\s+(\d+)/);
+  if (!m) return true;
+  // Любое слово улицы (≥4 букв) по основе из 4 букв: «газеты Звезда» ↔ «проспект Газеты Звязда».
+  const words = m[1]!.split(/\s+/).map((w) => plainRu(w.replace(/\.$/, ''))).filter((w) => w.length >= 4);
+  const house = plainRu(hit.address?.house_number ?? '');
+  const road = plainRu([hit.address?.road, hit.address?.pedestrian, hit.address?.square].filter(Boolean).join(' '));
+  return house.match(/^\d+/)?.[0] === m[2] && (!words.length || words.some((w) => road.includes(w.slice(0, 4))));
+}
+
+async function nominatimBy(q: string, key: string): Promise<Point | null> {
   const url = new URL('https://nominatim.openstreetmap.org/search');
-  const clean = address.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
-  url.searchParams.set('q', clean.includes(city) ? `${clean}, Беларусь` : `${clean}, ${city}, Беларусь`);
+  url.searchParams.set('q', q);
   url.searchParams.set('countrycodes', 'by');
   url.searchParams.set('format', 'jsonv2');
-  url.searchParams.set('limit', '1');
+  url.searchParams.set('addressdetails', '1');
+  url.searchParams.set('limit', key ? '5' : '1');
   const response = await fetch(url.toString(), {
     headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'ru' },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`Nominatim: HTTP ${response.status}`);
-  const [first] = (await response.json()) as { lat: string; lon: string }[];
-  return first ? { lat: Number(first.lat), lng: Number(first.lon) } : null;
+  const hits = (await response.json()) as NominatimHit[];
+  const hit = hits.find((h) => !TOO_WIDE.has(h.addresstype ?? '') && (!key || hitMatchesKey(h, key)));
+  return hit ? { lat: Number(hit.lat), lng: Number(hit.lon) } : null;
+}
+
+/** Белорусский адрес через публичный Nominatim (1 запрос в секунду — паузу держит вызывающий код). */
+export async function geocodeNominatimBy(address: string, city: string): Promise<Point | null> {
+  const clean = address.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+  return nominatimBy(clean.includes(city) ? `${clean}, Беларусь` : `${clean}, ${city}, Беларусь`, byAddressKey(address));
 }
 
 /** Названия мест из кавычек («Экспобел», "ГИППО") — для поиска ТЦ, когда у адреса нет улицы с номером. */
@@ -295,15 +325,6 @@ export function byQueries(address: string, city: string): string[] {
 /** Ответ «весь район / вся область» — не место обменника. */
 const TOO_WIDE = new Set(['country', 'state', 'region', 'county', 'municipality', 'city', 'town']);
 
-export async function geocodeNominatimQuery(q: string): Promise<Point | null> {
-  const url = new URL('https://nominatim.openstreetmap.org/search');
-  url.searchParams.set('q', `${q}, Беларусь`);
-  url.searchParams.set('countrycodes', 'by');
-  url.searchParams.set('format', 'jsonv2');
-  url.searchParams.set('limit', '1');
-  const response = await fetch(url.toString(), { headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'ru' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
-  if (!response.ok) throw new Error(`Nominatim: HTTP ${response.status}`);
-  const [first] = (await response.json()) as { lat: string; lon: string; addresstype?: string }[];
-  if (!first || TOO_WIDE.has(first.addresstype ?? '')) return null;
-  return { lat: Number(first.lat), lng: Number(first.lon) };
+export async function geocodeNominatimQuery(q: string, key = ''): Promise<Point | null> {
+  return nominatimBy(`${q}, Беларусь`, key);
 }

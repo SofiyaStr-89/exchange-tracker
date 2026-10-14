@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { byQueries, cleanByAddress, geocodeGugik, geocodeGugikLoose, geocodeIntersection, geocodeNominatim, geocodePhoton, intersectionStreets, parsePolishAddress, placeNamesFromAddress } from '../lib/geocode.js';
+import { byQueries, cleanByAddress, hitMatchesKey, geocodeGugik, geocodeGugikLoose, geocodeIntersection, geocodeNominatim, geocodePhoton, intersectionStreets, parsePolishAddress, placeNamesFromAddress } from '../lib/geocode.js';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -206,5 +206,23 @@ describe('Беларусь: нестандартные адреса', () => {
     expect(byQueries('Минский район, Боровлянский с/с, 43 (магазин Евроопт), Минск', 'Минск')).toContain('Евроопт 43, Боровлянский сельский Совет');
     expect(byQueries('Пересечение Логойского тракта и МКАД (ЗАО ВЦ Аквабел), Минский р-н', 'Минск')).toContain('Аквабел, Минск');
     expect(byQueries('9 км Московского шоссе', 'Минск')).toContain('Московское шоссе 9 км, Минский район');
+  });
+});
+
+describe('проверка ответа Nominatim по адресу', () => {
+  const hit = (road: string, house_number: string) => ({ lat: '0', lon: '0', address: { road, house_number } });
+  it('улица и номер совпадают', () => {
+    expect(hitMatchesKey(hit('Московская улица', '208'), 'московская 208')).toBe(true);
+    expect(hitMatchesKey(hit('Московская улица', '208/1'), 'московская 208')).toBe(true);
+    expect(hitMatchesKey(hit('проспект Газеты Звязда', '16'), 'газеты звезда 16')).toBe(true);
+    expect(hitMatchesKey(hit('улица Советских Пограничников', '110'), 'сов. пограничников 110')).toBe(true);
+  });
+  it('другой дом или другая улица — нет', () => {
+    expect(hitMatchesKey(hit('Московская улица', '20'), 'московская 208')).toBe(false);
+    expect(hitMatchesKey(hit('Пушкинская улица', '208'), 'московская 208')).toBe(false);
+    expect(hitMatchesKey(hit('Московская улица', ''), 'московская 208')).toBe(false);
+  });
+  it('без номера в ключе — не проверяем', () => {
+    expect(hitMatchesKey(hit('', ''), '')).toBe(true);
   });
 });

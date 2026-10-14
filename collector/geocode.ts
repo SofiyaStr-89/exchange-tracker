@@ -176,7 +176,7 @@ if (missingBy.length) {
       const qKey = `q|${q}`;
       if (!cacheBy.has(qKey)) {
         await sleep(PAUSE_MS);
-        cacheBy.set(qKey, await geocodeNominatimQuery(q));
+        cacheBy.set(qKey, await geocodeNominatimQuery(q, byAddressKey(address)));
       }
       point = cacheBy.get(qKey) ?? null;
       via = `Nominatim («${q}»)`;
