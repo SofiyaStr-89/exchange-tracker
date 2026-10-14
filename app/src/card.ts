@@ -28,6 +28,8 @@ export interface CardOptions {
   /** Расстояние до обменника и от чего оно посчитано (FR-28). */
   distance: { meters: number; fromUser: boolean };
   onClose: () => void;
+  /** Карточка открыта из списка пунктов одного места — кнопка «назад» к списку. */
+  onBack?: () => void;
 }
 
 function link(text: string, href: string, external = true): HTMLAnchorElement {
@@ -139,7 +141,7 @@ function hoursLine(e: ApiExchanger, timeZone: string): { text: string; open: boo
   return { text, open: state.open, known: true };
 }
 
-export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, mode, calc, onCalcChange, favorite, onToggleFavorite, distance, onClose }: CardOptions): void {
+export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, mode, calc, onCalcChange, favorite, onToggleFavorite, distance, onClose, onBack }: CardOptions): void {
   const timeZone = COUNTRY_TIME_ZONE[e.country] ?? 'Europe/Warsaw';
   const local = LOCAL_CURRENCY[e.country] ?? '';
   const rate = e.rates[currency];
@@ -164,8 +166,16 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
   star.title = favorite ? t.favoriteRemove : t.favoriteAdd;
   star.addEventListener('click', onToggleFavorite);
 
+  let back: HTMLButtonElement | null = null;
+  if (onBack) {
+    back = el('button', { className: 'card-back', text: t.backToPlace });
+    back.type = 'button';
+    back.addEventListener('click', onBack);
+  }
+
   const parts: (Node | null)[] = [
     closeButton,
+    back,
     star,
     el('h2', { text: e.name }),
     el('p', { className: 'muted', text: e.bank && e.bank !== e.name ? `${e.bank} · ${e.address}` : e.address }),

@@ -12,6 +12,8 @@ export interface PlateInfo {
   /** Курс для выбора лучшего: только открытые со свежим курсом; иначе null. */
   eligible: number | null;
   isBest: boolean;
+  /** Сколько обменников за плашкой (несколько пунктов одного места — одна плашка). */
+  count?: number;
 }
 
 export type PlateMarker = L.Marker & { plateInfo?: PlateInfo };
@@ -30,7 +32,7 @@ export function createClusterGroup(getMode: () => Mode): L.MarkerClusterGroup {
       const classes = ['plate', 'plate-cluster', best === null ? 'plate-none' : '', green ? 'plate-best' : ''].filter(Boolean).join(' ');
       return L.divIcon({
         className: 'plate-anchor',
-        html: `<div class="${classes}">${best === null ? '—' : formatRate(best)}<span class="cluster-count">${cluster.getChildCount()}</span></div>`,
+        html: `<div class="${classes}">${best === null ? '—' : formatRate(best)}<span class="cluster-count">${infos.reduce((n, i) => n + (i.count ?? 1), 0)}</span></div>`,
         iconSize: undefined,
       });
     },

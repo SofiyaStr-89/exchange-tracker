@@ -507,6 +507,23 @@ body {
   color: var(--muted);
 }
 
+/* Несколько пунктов в одном месте */
+.card-back {
+  display: block;
+  margin: 0 0 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.place-best {
+  color: var(--ok);
+}
+
 /* Избранное (FR-18, FR-33, FR-34) */
 .bottom-chips {
   display: flex;

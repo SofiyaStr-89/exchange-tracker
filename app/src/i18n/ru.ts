@@ -41,6 +41,8 @@ export const ru = {
 
   close: 'Закрыть',
   north: 'Повернуть на север',
+  placeTitle: 'Обменников в этом месте: {n}',
+  backToPlace: '← Все в этом месте',
   favorites: 'Избранное',
   favoritesTitle: 'Избранное',
   favoritesEmpty: 'Пока пусто. Отметьте обменник звёздочкой ☆ в его карточке.',

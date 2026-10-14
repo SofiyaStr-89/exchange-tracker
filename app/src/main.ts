@@ -7,6 +7,8 @@ import { distanceMeters } from '../../lib/geo.js';
 import { COUNTRY_TIME_ZONE, nextOpening, openState } from '../../lib/hours.js';
 import { fetchExchangers, type ApiExchanger } from './api.js';
 import { renderCard, type CalcState } from './card.js';
+import { renderPlace, type PlaceItem } from './place-card.js';
+import { groupByPlace } from './places.js';
 import { countryAt, currencyName, loadCurrencies, type Country } from './currencies.js';
 import { el } from './dom.js';
 import { cleanFavorites, isFavorite, toggleFavorite } from './favorites.js';
@@ -196,9 +198,20 @@ function closeCard(): void {
   card.hidden = true;
 }
 
-function openCard(e: ApiExchanger): void {
+/** Список пунктов одного места; из карточки пункта — назад к списку. */
+function openPlace(group: PlaceItem[]): void {
+  renderPlace(card, group, {
+    currency: state.currency,
+    mode: state.mode,
+    onSelect: (e) => openCard(e, () => openPlace(group)),
+    onClose: closeCard,
+  });
+}
+
+function openCard(e: ApiExchanger, onBack?: () => void): void {
   const from = state.user ?? map.getCenter();
   renderCard(card, e, {
+    onBack,
     currency: state.currency,
     mode: state.mode,
     calc: state.calc,
@@ -210,7 +223,7 @@ function openCard(e: ApiExchanger): void {
     onToggleFavorite: () => {
       state.favorites = toggleFavorite(state.favorites, e);
       save('favorites', state.favorites);
-      openCard(e);
+      openCard(e, onBack);
       renderPlates(); // FR-18: ★ на плашке
     },
     distance: { meters: distanceMeters(from, e), fromUser: state.user !== null },
@@ -236,40 +249,65 @@ function renderPlates(): void {
   const best = bestIds(withOpen, state.currency, state.mode); // FR-16: среди открытых видимых
   let shown = 0;
   let closedWithRate = 0;
-  const markers: PlateMarker[] = [];
+  const items: PlaceItem[] = [];
   for (const e of withOpen) {
     const value = rateFor(e, state.currency, state.mode);
     if (!e.open && value !== null) closedWithRate++;
     if (!e.open && state.openOnly) continue; // FR-19
     if (value !== null) shown++;
-    // FR-15: без курса — серая плашка с прочерком; FR-20: закрытые — бледные с «откроется …».
-    const next = e.open ? null : nextOpening(e.hours, zoneOf(e));
-    // FR-24: курс старше суток — с пометкой возраста, в выборе лучшего не участвует.
-    const stale = value === null ? null : staleLabel(e.rates[state.currency]!, zoneOf(e));
+    items.push({
+      e,
+      value,
+      open: e.open,
+      // FR-24: курс старше суток — с пометкой возраста, в выборе лучшего не участвует.
+      stale: value === null ? null : staleLabel(e.rates[state.currency]!, zoneOf(e)),
+      // FR-20: закрытые — бледные с «откроется …».
+      next: e.open ? null : nextOpening(e.hours, zoneOf(e)),
+      best: best.has(e.id),
+    });
+  }
+  // FR-17: кластер показывает лучший курс только среди открытых со свежим курсом.
+  const eligible = (i: PlaceItem) => {
+    const rate = i.e.rates[state.currency];
+    return i.value !== null && i.open && rate && isFresh(rate) ? i.value : null;
+  };
+  const better = (a: number, b: number) => (state.mode === 'buy' ? Math.min(a, b) : Math.max(a, b));
+  const markers: PlateMarker[] = groupByPlace(items.map((i) => ({ ...i, lat: i.e.lat, lng: i.e.lng }))).map((group) => {
+    const single = group.length === 1 ? group[0]! : null;
+    // Несколько пунктов в одном месте — одна плашка: лучший курс среди открытых со свежим курсом, иначе любой.
+    const values = group.map(eligible).filter((v): v is number => v !== null);
+    const anyValues = group.map((i) => i.value).filter((v): v is number => v !== null);
+    const value = values.length ? values.reduce(better) : anyValues.length ? anyValues.reduce(better) : null;
+    const open = group.some((i) => i.open);
+    const isBest = group.some((i) => i.best);
+    const stale = single ? single.stale : null;
+    const next = single?.next ?? null;
     const classes = [
       'plate',
-      value === null ? 'plate-none' : best.has(e.id) ? 'plate-best' : '',
+      single ? '' : 'plate-cluster',
+      value === null ? 'plate-none' : isBest ? 'plate-best' : '',
       stale ? 'plate-stale' : '',
-      e.open ? '' : 'plate-closed',
+      open ? '' : 'plate-closed',
     ];
-    const star = isFavorite(state.favorites, e) ? '<span class="plate-star">★</span>' : ''; // FR-18
-    const label = star + (value === null ? t.noRateMark : formatRate(value));
-    const opens = [stale, next ? formatOpens(next) : null].filter(Boolean).map((s) => `<small>${s}</small>`).join('');
+    const star = group.some((i) => isFavorite(state.favorites, i.e)) ? '<span class="plate-star">★</span>' : ''; // FR-18
+    const count = single ? '' : `<span class="cluster-count">${group.length}</span>`;
+    const label = star + (value === null ? t.noRateMark : formatRate(value)) + count;
+    const opens = [stale, next ? formatOpens(next) : null].filter(Boolean).map((x) => `<small>${x}</small>`).join('');
     const icon = L.divIcon({
       className: 'plate-anchor',
       html: `<div class="${classes.filter(Boolean).join(' ')}">${label}${opens}</div>`,
       iconSize: undefined,
     });
-    const marker: PlateMarker = L.marker([e.lat, e.lng], { icon, title: e.name, riseOnHover: true, zIndexOffset: value === null || !e.open ? 0 : 1000 });
+    const title = single ? single.e.name : fmt(t.placeTitle, { n: group.length });
+    const marker: PlateMarker = L.marker([group[0]!.lat, group[0]!.lng], { icon, title, riseOnHover: true, zIndexOffset: value === null || !open ? 0 : 1000 });
     marker.on('click', (ev) => {
       L.DomEvent.stopPropagation(ev);
-      openCard(e);
+      if (single) openCard(single.e);
+      else openPlace(group);
     });
-    // FR-17: кластер показывает лучший курс только среди открытых со свежим курсом.
-    const rate = e.rates[state.currency];
-    marker.plateInfo = { eligible: value !== null && e.open && rate && isFresh(rate) ? value : null, isBest: best.has(e.id) };
-    markers.push(marker);
-  }
+    marker.plateInfo = { eligible: values.length ? values.reduce(better) : null, isBest, count: group.length };
+    return marker;
+  });
   plates.addLayers(markers);
   if (shown) return setNotice(null);
 
