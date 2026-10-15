@@ -36,12 +36,14 @@ export function currencyName(code: string): string {
   }
 }
 
+const LIST_VERSION = 2;
 const cache = new Map<Country, Promise<string[]>>();
 
 export function loadCurrencies(country: Country): Promise<string[]> {
   let p = cache.get(country);
   if (!p) {
-    p = fetch(`/api/currencies?country=${country}`)
+    // v — версия списка: после изменений в нём (золото, 15.10.2026) телефон не должен брать старый из кэша.
+    p = fetch(`/api/currencies?country=${country}&v=${LIST_VERSION}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((b: { currencies: { currency: string }[] }) => orderCurrencies(country, b.currencies.map((c) => c.currency)))
       .catch(() => {

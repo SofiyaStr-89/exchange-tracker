@@ -31,7 +31,7 @@ export async function GET(request: Request): Promise<Response> {
     .map((g) => ({ currency: goldCode(g.kind, g.item), exchangers: g.exchangers }));
   return Response.json(
     { country, currencies: [...rows, ...goldRows] },
-    // Список меняется редко: телефону можно держать его час.
-    { headers: { 'Cache-Control': 'public, max-age=3600' } },
+    // Список меняется редко, но новые пункты (золото) должны появляться быстро — 10 минут.
+    { headers: { 'Cache-Control': 'public, max-age=600' } },
   );
 }
