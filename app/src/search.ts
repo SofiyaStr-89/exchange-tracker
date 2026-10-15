@@ -111,11 +111,10 @@ export function createSearch(options: { getCenter: () => { lat: number; lng: num
         ? items.map((s) => {
             const button = el('button', { className: 'search-item' }, el('span', { text: s.label }), s.detail ? el('small', { text: s.detail }) : null);
             button.type = 'button';
-            // pointerdown, чтобы выбор успел до потери фокуса полем ввода
-            button.addEventListener('pointerdown', (ev) => {
-              ev.preventDefault();
-              choose(s);
-            });
+            // Касание не забирает фокус у поля (иначе список спрячется по blur), а выбор — по click:
+            // если выбирать на pointerdown, список исчезает под пальцем и «click» достаётся кнопке валюты под ним.
+            button.addEventListener('pointerdown', (ev) => ev.preventDefault());
+            button.addEventListener('click', () => choose(s));
             return el('li', {}, button);
           })
         : empty
@@ -169,7 +168,8 @@ export function createSearch(options: { getCenter: () => { lat: number; lng: num
     else render([], true);
   });
 
-  input.addEventListener('blur', () => setTimeout(() => (list.hidden = true), 150));
+  // С запасом: на iPhone фокус уходит при касании подсказки, а её click приходит чуть позже.
+  input.addEventListener('blur', () => setTimeout(() => (list.hidden = true), 300));
   input.addEventListener('focus', () => {
     // Карта в Беларуси — словарь улиц грузим заранее, пока человек начинает печатать.
     if (countryAt(options.getCenter()) === 'BY') void loadByWords();
