@@ -3,7 +3,7 @@
 import { and, between, eq, inArray, isNotNull, or, type SQL } from 'drizzle-orm';
 import type { getDb } from './db/index.js';
 import { exchangers, goldPrices, rates, type WeekHours } from './db/schema.js';
-import { goldOwners } from './gold.js';
+import { goldCode, goldOwners } from './gold.js';
 import { boundsCenter, inside, type Bounds } from './bounds.js';
 import { distanceMeters } from './geo.js';
 import { mergeDuplicates } from './merge.js';
@@ -143,7 +143,7 @@ export async function loadInBounds(
   currency: string,
 ): Promise<{ inView: ExchangerOut[]; nearest: ExchangerOut[] }> {
   const points = await loadPoints(db, near(boundsCenter(bounds), NEAREST_MAX_M));
-  return splitByBounds(mergeDuplicates(points), bounds, (e) => Boolean(e.rates[currency]));
+  return splitByBounds(await withGoldRates(db, mergeDuplicates(points)), bounds, (e) => Boolean(e.rates[currency]));
 }
 
 /** Склеиваемые дубли лежат не дальше этого — соседей берём с запасом, чтобы склейка совпала с картой. */
@@ -162,27 +162,29 @@ export async function loadByIds(db: Db, ids: string[]): Promise<Point[]> {
   if (!found.length) return [];
   const points = await loadPoints(db, or(...found.map((p) => near({ lat: p.lat!, lng: p.lng! }, MERGE_RADIUS_M))));
   const wanted = new Set(ids);
-  return mergeDuplicates(points).filter((e) => e.memberIds.some((id) => wanted.has(id)));
+  return withGoldRates(db, mergeDuplicates(points).filter((e) => e.memberIds.some((id) => wanted.has(id))));
 }
 
-export interface GoldOut {
-  kind: 'purity' | 'bar';
-  item: string;
-  buy: number | null;
-  sell: number | null;
-  priceUpdatedAt: Date | null;
-  source: string;
-}
-
-/** Цены золота для обменников — словарь «владелец → цены» (банк Беларуси — один раз, а не на каждое отделение). */
-export async function loadGold(db: Db, points: { country: string; bank: string | null; memberIds?: string[]; id: string }[]): Promise<Record<string, GoldOut[]>> {
+/**
+ * Цены золота — в курсы обменника кодами XAU… (kantor — по своему id, отделение в Беларуси — цены своего банка).
+ * Банковские цены одинаковы во всех отделениях банка: в каких есть слитки, источник не говорит (карточка предупреждает).
+ */
+async function withGoldRates<T extends Point>(db: Db, points: T[]): Promise<T[]> {
   const owners = [...new Set(points.flatMap(goldOwners))];
-  if (!owners.length) return {};
+  if (!owners.length) return points;
   const rows = await db.select().from(goldPrices).where(inArray(goldPrices.owner, owners));
-  const out: Record<string, GoldOut[]> = {};
-  for (const r of rows) {
-    (out[r.owner] ??= []).push({ kind: r.kind, item: r.item, buy: r.buy, sell: r.sell, priceUpdatedAt: r.priceUpdatedAt, source: r.source });
-  }
-  for (const list of Object.values(out)) list.sort((a, b) => Number(b.item) - Number(a.item) || 0);
-  return out;
+  if (!rows.length) return points;
+  const byOwner = new Map<string, typeof rows>();
+  for (const r of rows) byOwner.set(r.owner, [...(byOwner.get(r.owner) ?? []), r]);
+  return points.map((p) => {
+    const gold = goldOwners(p).flatMap((o) => byOwner.get(o) ?? []);
+    if (!gold.length) return p;
+    const extra = Object.fromEntries(
+      gold.map((g) => [
+        goldCode(g.kind, g.item),
+        { buy: g.buy, sell: g.sell, rateUpdatedAt: g.priceUpdatedAt, confirmedAt: g.priceUpdatedAt ?? g.fetchedAt, source: g.source },
+      ]),
+    );
+    return { ...p, rates: { ...p.rates, ...extra } };
+  });
 }

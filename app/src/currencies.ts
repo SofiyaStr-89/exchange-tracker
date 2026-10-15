@@ -1,6 +1,7 @@
 // Список валют для переключателя (FR-10): из реальных данных страны, основные — первыми.
 
-import { t } from './i18n/index.js';
+import { parseGoldCode } from '../../lib/gold.js';
+import { fmt, t } from './i18n/index.js';
 
 export type Country = 'PL' | 'BY';
 
@@ -16,6 +17,8 @@ export function countryAt(p: { lat: number; lng: number }): Country {
   return p.lat > 51.25 && p.lat < 56.2 && p.lng > 23.6 && p.lng < 32.8 ? 'BY' : 'PL';
 }
 
+export const featuredCurrencies = (country: Country) => FEATURED[country];
+
 export function orderCurrencies(country: Country, fromApi: string[]): string[] {
   const featured = FEATURED[country].filter((c) => fromApi.includes(c));
   return [...featured, ...fromApi.filter((c) => !featured.includes(c))];
@@ -23,6 +26,8 @@ export function orderCurrencies(country: Country, fromApi: string[]): string[] {
 
 let names: Intl.DisplayNames | null = null;
 export function currencyName(code: string): string {
+  const gold = parseGoldCode(code);
+  if (gold) return fmt(gold.kind === 'bar' ? t.goldBarName : t.goldPurityName, { n: gold.item });
   try {
     names ??= new Intl.DisplayNames([t.locale], { type: 'currency' });
     return names.of(code) ?? code;
@@ -46,4 +51,10 @@ export function loadCurrencies(country: Country): Promise<string[]> {
     cache.set(country, p);
   }
   return p;
+}
+
+/** Короткое имя для подписей «Покупаю …»: код валюты или «золото 999, 1 г» / «слиток 10 г». */
+export function currencyShort(code: string): string {
+  const gold = parseGoldCode(code);
+  return gold ? fmt(gold.kind === 'bar' ? t.goldBarShort : t.goldPurityShort, { n: gold.item }) : code;
 }

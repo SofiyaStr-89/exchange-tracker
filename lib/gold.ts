@@ -30,3 +30,16 @@ export const bankKey = (name: string) => `bank:${name.trim().toLowerCase().repla
 export function goldOwners(e: { country: string; bank: string | null; memberIds?: string[]; id: string }): string[] {
   return [...(e.memberIds ?? [e.id]), ...(e.country === 'BY' && e.bank ? [bankKey(e.bank)] : [])];
 }
+
+/**
+ * Золото как «валюта» в выборе (решение 15.10.2026): XAU999 — проба 999 за 1 г (kantor),
+ * XAU10G — мерный слиток 10 г (банк Беларуси). Так плашки, лучший курс и фильтры работают как для валют.
+ */
+export const goldCode = (kind: 'purity' | 'bar', item: string) => (kind === 'bar' ? `XAU${item}G` : `XAU${item}`);
+
+export function parseGoldCode(code: string): { kind: 'purity' | 'bar'; item: string } | null {
+  const m = code.match(/^XAU(\d+)(G?)$/);
+  return m ? { kind: m[2] ? 'bar' : 'purity', item: m[1]! } : null;
+}
+
+export const isGoldCode = (code: string) => parseGoldCode(code) !== null;

@@ -24,22 +24,11 @@ export interface ApiExchanger {
   rates: Record<string, ApiRate>;
 }
 
-/** Золото: kantor — цена за 1 г по пробе (purity), банк Беларуси — цена слитка по весу в граммах (bar). */
-export interface ApiGold {
-  kind: 'purity' | 'bar';
-  item: string;
-  buy: number | null;
-  sell: number | null;
-  priceUpdatedAt: string | null;
-  source: string;
-}
-
 export interface ExchangersResponse {
   refreshing: boolean;
   dataFetchedAt: string | null;
   exchangers: ApiExchanger[];
   nearest: ApiExchanger[];
-  gold: Record<string, ApiGold[]>;
 }
 
 export async function fetchExchangers(bounds: Bounds, currency: string): Promise<ExchangersResponse> {
@@ -53,12 +42,12 @@ export async function fetchExchangers(bounds: Bounds, currency: string): Promise
 }
 
 /** Избранное (FR-34): список id — в теле, не в адресе. */
-export async function fetchFavorites(ids: string[]): Promise<{ refreshing: boolean; exchangers: ApiExchanger[]; gold: Record<string, ApiGold[]> }> {
+export async function fetchFavorites(ids: string[]): Promise<{ refreshing: boolean; exchangers: ApiExchanger[] }> {
   const response = await fetch('/api/favorites', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ids }),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return (await response.json()) as { refreshing: boolean; exchangers: ApiExchanger[]; gold: Record<string, ApiGold[]> };
+  return (await response.json()) as { refreshing: boolean; exchangers: ApiExchanger[] };
 }

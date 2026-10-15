@@ -3,6 +3,7 @@
 
 import type { NextOpening } from '../../lib/hours.js';
 import type { ApiExchanger } from './api.js';
+import { currencyShort } from './currencies.js';
 import { el } from './dom.js';
 import { formatOpens, formatRate, LOCAL_CURRENCY } from './format.js';
 import { fmt, t } from './i18n/index.js';
@@ -32,7 +33,7 @@ export function renderPlace(
   close.type = 'button';
   close.setAttribute('aria-label', t.close);
   close.addEventListener('click', onClose);
-  const label = fmt(mode === 'buy' ? t.buyLabel : t.sellLabel, { currency });
+  const label = fmt(mode === 'buy' ? t.buyLabel : t.sellLabel, { currency: currencyShort(currency) });
   const rows = sortPlace(items, mode).map((i) => {
     const local = LOCAL_CURRENCY[i.e.country] ?? '';
     const status = i.open

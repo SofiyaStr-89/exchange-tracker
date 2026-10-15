@@ -2,6 +2,7 @@
 
 import { COUNTRY_TIME_ZONE, openState } from '../../lib/hours.js';
 import { fetchFavorites, type ApiExchanger } from './api.js';
+import { currencyShort } from './currencies.js';
 import { el } from './dom.js';
 import { formatRate, LOCAL_CURRENCY, staleLabel } from './format.js';
 import { fmt, t } from './i18n/index.js';
@@ -14,11 +15,9 @@ export interface FavoritesScreenOptions {
   getIds: () => string[];
   getView: () => { currency: string; mode: Mode };
   onSelect: (e: ApiExchanger) => void;
-  /** Золото из ответа избранного — чтобы оно было в карточке, открытой из списка. */
-  onGold?: (gold: Record<string, import('./api.js').ApiGold[]>) => void;
 }
 
-export function createFavoritesScreen({ getIds, getView, onSelect, onGold }: FavoritesScreenOptions) {
+export function createFavoritesScreen({ getIds, getView, onSelect }: FavoritesScreenOptions) {
   const list = el('div', { className: 'favorites-list' });
   const close = el('button', { className: 'card-close', text: '×' });
   close.type = 'button';
@@ -39,7 +38,7 @@ export function createFavoritesScreen({ getIds, getView, onSelect, onGold }: Fav
     const rateText =
       value === null
         ? t.noRate
-        : `${fmt(mode === 'buy' ? t.buyLabel : t.sellLabel, { currency })}: ${formatRate(value)} ${LOCAL_CURRENCY[e.country] ?? ''}`;
+        : `${fmt(mode === 'buy' ? t.buyLabel : t.sellLabel, { currency: currencyShort(currency) })}: ${formatRate(value)} ${LOCAL_CURRENCY[e.country] ?? ''}`;
     const button = el(
       'button',
       { className: 'favorite-row' },
@@ -71,7 +70,6 @@ export function createFavoritesScreen({ getIds, getView, onSelect, onGold }: Fav
     try {
       const data = await fetchFavorites(ids);
       if (my !== seq || screen.hidden) return;
-      onGold?.(data.gold ?? {});
       const sorted = [...data.exchangers].sort((a, b) => a.city.localeCompare(b.city) || a.name.localeCompare(b.name));
       list.replaceChildren(
         ...(sorted.length ? sorted.map(row) : [el('p', { className: 'muted', text: t.favoritesGone })]),

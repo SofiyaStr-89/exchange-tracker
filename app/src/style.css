@@ -507,6 +507,44 @@ body {
   color: var(--muted);
 }
 
+/* Выбор валюты с поиском */
+.currency-button {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.currency-button::after {
+  content: ' ▾';
+  color: var(--muted);
+}
+
+.picker {
+  z-index: 1200;
+}
+
+.picker-search {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.picker-row {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.picker-row strong {
+  min-width: 44px;
+}
+
+.picker-current strong::after {
+  content: ' ✓';
+  color: var(--accent);
+}
+
 /* Золото */
 .gold-title {
   margin: 14px 0 4px;

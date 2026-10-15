@@ -7,7 +7,7 @@ import { waitUntil } from '@vercel/functions';
 import { citiesNear } from '../lib/cities.js';
 import { getDb } from '../lib/db/index.js';
 import { boundsCenter, isTooLarge, MAX_SIDE_M, type Bounds } from '../lib/bounds.js';
-import { loadGold, loadInBounds } from '../lib/exchangers.js';
+import { loadInBounds } from '../lib/exchangers.js';
 import { planRefresh, runCollects } from '../lib/refresh.js';
 
 const isLat = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= -90 && v <= 90;
@@ -15,7 +15,7 @@ const isLng = (v: unknown): v is number => typeof v === 'number' && Number.isFin
 
 function parseBody(body: unknown): { bounds: Bounds; currency: string } | null {
   const { bounds, currency = 'USD' } = (body ?? {}) as { bounds?: Record<string, unknown>; currency?: unknown };
-  if (typeof currency !== 'string' || !/^[A-Z]{3}$/.test(currency)) return null;
+  if (typeof currency !== 'string' || !/^([A-Z]{3}|XAU\d{1,4}G?)$/.test(currency)) return null; // валюта или золото (XAU999, XAU10G)
   if (!bounds || typeof bounds !== 'object') return null;
   const { south, west, north, east } = bounds;
   if (!isLat(south) || !isLat(north) || !isLng(west) || !isLng(east)) return null;
@@ -42,14 +42,12 @@ export async function POST(request: Request): Promise<Response> {
   if (plan.stale.length) waitUntil(runCollects(db, plan.stale));
 
   const { inView, nearest } = await loadInBounds(db, bounds, currency);
-  const gold = await loadGold(db, inView);
   return Response.json(
     {
       refreshing: plan.stale.length > 0,
       dataFetchedAt: plan.firstTime.length ? new Date() : plan.oldestFetchedAt,
       exchangers: inView,
       nearest,
-      gold,
     },
     { headers: noStore },
   );

@@ -5,12 +5,12 @@ import { createClusterGroup, type PlateMarker } from './clusters.js';
 import { isTooLarge, type Bounds } from '../../lib/bounds.js';
 import { distanceMeters } from '../../lib/geo.js';
 import { COUNTRY_TIME_ZONE, nextOpening, openState } from '../../lib/hours.js';
-import { fetchExchangers, type ApiExchanger, type ApiGold } from './api.js';
-import { goldOwners } from '../../lib/gold.js';
+import { fetchExchangers, type ApiExchanger } from './api.js';
 import { renderCard, type CalcState } from './card.js';
+import { createCurrencyPicker } from './currency-picker.js';
 import { renderPlace, type PlaceItem } from './place-card.js';
 import { groupByPlace } from './places.js';
-import { countryAt, currencyName, loadCurrencies, type Country } from './currencies.js';
+import { countryAt, currencyShort, loadCurrencies, type Country } from './currencies.js';
 import { el } from './dom.js';
 import { cleanFavorites, isFavorite, toggleFavorite } from './favorites.js';
 import { createFavoritesScreen } from './favorites-screen.js';
@@ -49,8 +49,6 @@ const state = {
   favorites: cleanFavorites(load<unknown>('favorites', [])),
   country: 'PL' as Country,
   exchangers: [] as ApiExchanger[],
-  // Золото по владельцам (id обменника или банк Беларуси) — из ответов карты и избранного.
-  gold: {} as Record<string, ApiGold[]>,
   nearest: [] as ApiExchanger[],
 };
 
@@ -60,8 +58,15 @@ const mapEl = el('div', { className: 'map' });
 const top = el('div', { className: 'top' });
 
 // FR-10, FR-11: переключатели валюты и режима вверху экрана.
-const currencySelect = el('select', { className: 'control-select' });
-currencySelect.setAttribute('aria-label', t.currencyLabel);
+const currencyPicker = createCurrencyPicker((code) => {
+  state.currency = code;
+  save('currency', state.currency);
+  currencyPicker.setOptions(lastCodes, state.country, code);
+  closeCard();
+  renderPlates();
+  scheduleLoad(); // «ближайшие» за экраном зависят от валюты (FR-9)
+});
+let lastCodes: string[] = [];
 const modeButtons = (['buy', 'sell'] as Mode[]).map((mode) => {
   const b = el('button', { className: 'segment', text: mode === 'buy' ? t.modeBuy : t.modeSell });
   b.type = 'button';
@@ -71,7 +76,7 @@ const modeButtons = (['buy', 'sell'] as Mode[]).map((mode) => {
 const modeGroup = el('div', { className: 'segmented' }, ...modeButtons);
 modeGroup.setAttribute('role', 'group');
 modeGroup.setAttribute('aria-label', t.modeLabel);
-const controls = el('div', { className: 'controls' }, currencySelect, modeGroup);
+const controls = el('div', { className: 'controls' }, currencyPicker.button, modeGroup);
 const openOnlyButton = el('button', { className: 'chip', text: t.openOnly });
 openOnlyButton.type = 'button';
 // FR-5: «Ко мне», как в приложениях карт. Иконка — своя статичная разметка, без данных извне.
@@ -109,7 +114,6 @@ refreshBadge.hidden = true;
 const favoritesScreen = createFavoritesScreen({
   getIds: () => state.favorites,
   getView: () => ({ currency: state.currency, mode: state.mode }),
-  onGold: (gold) => Object.assign(state.gold, gold),
   onSelect: (e) => {
     map.setView([e.lat, e.lng], Math.max(map.getZoom(), DEFAULT_ZOOM)); // moveend → подгрузка области
     openCard(e);
@@ -124,7 +128,7 @@ favoritesButton.addEventListener('click', () => {
 const bottom = el('div', { className: 'bottom' }, el('div', { className: 'bottom-chips' }, openOnlyButton, favoritesButton), refreshBadge, el('div', { className: 'bottom-right' }, compassButton, locateButton));
 const card = el('section', { className: 'card' });
 card.hidden = true;
-app.replaceChildren(mapEl, top, bottom, card, favoritesScreen.element);
+app.replaceChildren(mapEl, top, bottom, card, favoritesScreen.element, currencyPicker.sheet);
 
 function setNotice(text: string | null, action?: { label: string; onClick: () => void }): void {
   notice.replaceChildren();
@@ -216,7 +220,6 @@ function openCard(e: ApiExchanger, onBack?: () => void): void {
   const from = state.user ?? map.getCenter();
   renderCard(card, e, {
     onBack,
-    gold: goldOwners(e).flatMap((owner) => state.gold[owner] ?? []),
     currency: state.currency,
     mode: state.mode,
     calc: state.calc,
@@ -324,8 +327,8 @@ function renderPlates(): void {
   const openNearest = withRate.filter((e) => openState(e.hours, zoneOf(e)).open);
   const nearest = state.openOnly && openNearest.length ? openNearest : withRate;
   const first = nearest[0];
-  if (!first) return setNotice(fmt(t.emptyFar, { currency: state.currency }));
-  setNotice(fmt(t.emptyNearest, { currency: state.currency, name: first.name, distance: formatDistance(first.distance ?? 0) }), {
+  if (!first) return setNotice(fmt(t.emptyFar, { currency: currencyShort(state.currency) }));
+  setNotice(fmt(t.emptyNearest, { currency: currencyShort(state.currency), name: first.name, distance: formatDistance(first.distance ?? 0) }), {
     label: t.showNearest,
     onClick: () => map.fitBounds(L.latLngBounds([map.getCenter(), ...nearest.map((e) => L.latLng(e.lat, e.lng))]), { padding: [48, 48] }),
   });
@@ -343,7 +346,6 @@ async function loadView(attempt = 0): Promise<void> {
     const data = await fetchExchangers(bounds, state.currency);
     if (seq !== requestSeq) return; // карту уже сдвинули — ответ устарел
     state.exchangers = data.exchangers;
-    Object.assign(state.gold, data.gold);
     state.nearest = data.nearest;
     refreshBadge.hidden = !data.refreshing;
     renderPlates();
@@ -364,24 +366,9 @@ function renderModeButtons(): void {
 async function fillCurrencies(country: Country): Promise<void> {
   const list = await loadCurrencies(country);
   if (country !== state.country) return; // пока грузили, карту увели в другую страну
-  const codes = list.includes(state.currency) ? list : [state.currency, ...list];
-  currencySelect.replaceChildren(
-    ...codes.map((code) => {
-      const option = el('option', { text: `${code} — ${currencyName(code)}` });
-      option.value = code;
-      option.selected = code === state.currency;
-      return option;
-    }),
-  );
+  lastCodes = list;
+  currencyPicker.setOptions(list, country, state.currency);
 }
-
-currencySelect.addEventListener('change', () => {
-  state.currency = currencySelect.value;
-  save('currency', state.currency);
-  closeCard();
-  renderPlates();
-  scheduleLoad(); // «ближайшие» за экраном зависят от валюты (FR-9)
-});
 
 modeGroup.addEventListener('click', (ev) => {
   const mode = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-mode]')?.dataset.mode as Mode | undefined;

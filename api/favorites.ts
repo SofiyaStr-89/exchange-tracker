@@ -5,7 +5,7 @@
 import { waitUntil } from '@vercel/functions';
 import { citiesNear, type City } from '../lib/cities.js';
 import { getDb } from '../lib/db/index.js';
-import { loadByIds, loadGold } from '../lib/exchangers.js';
+import { loadByIds } from '../lib/exchangers.js';
 import { planRefresh, runCollects } from '../lib/refresh.js';
 
 const MAX_IDS = 100;
@@ -33,5 +33,5 @@ export async function POST(request: Request): Promise<Response> {
   const jobs = [...plan.firstTime, ...plan.stale];
   if (jobs.length) waitUntil(runCollects(db, jobs));
 
-  return Response.json({ refreshing: jobs.length > 0, exchangers: list, gold: await loadGold(db, list) }, { headers: noStore });
+  return Response.json({ refreshing: jobs.length > 0, exchangers: list }, { headers: noStore });
 }
