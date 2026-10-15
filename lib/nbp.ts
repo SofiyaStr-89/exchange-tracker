@@ -35,3 +35,19 @@ export async function loadNbpMids(): Promise<MidRates> {
   cached = { at: Date.now(), mids };
   return mids;
 }
+
+let cachedGold: { at: number; price: number } | null = null;
+
+/** Цена 1 г чистого золота по NBP (api.nbp.pl/api/cenyzlota) — для проверки цен kantorów на золото. */
+export async function loadNbpGold(): Promise<number> {
+  if (cachedGold && Date.now() - cachedGold.at < CACHE_MS) return cachedGold.price;
+  const res = await fetch('https://api.nbp.pl/api/cenyzlota/?format=json', {
+    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`NBP золото: HTTP ${res.status}`);
+  const [first] = (await res.json()) as { cena: number }[];
+  if (!first || !(first.cena > 0)) throw new Error('NBP золото: пустой ответ');
+  cachedGold = { at: Date.now(), price: first.cena };
+  return first.cena;
+}

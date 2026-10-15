@@ -2,7 +2,7 @@
 
 import { and, eq, gt, inArray, like, notInArray, sql } from 'drizzle-orm';
 import type { getDb } from './db/index.js';
-import { cityFetches, exchangers, rates } from './db/schema.js';
+import { cityFetches, exchangers, goldPrices, rates } from './db/schema.js';
 import type { AdapterResult, Country } from './adapters/types.js';
 
 type Db = ReturnType<typeof getDb>;
@@ -138,4 +138,12 @@ export async function finishCityFetch(
     .update(cityFetches)
     .set(error ? { status: 'error', error } : { status: 'ok', error: null, fetchedAt: sql`now()` })
     .where(and(eq(cityFetches.source, source), eq(cityFetches.country, country), eq(cityFetches.city, city)));
+}
+
+/** Цены золота источника заменяются целиком (в пределах ownerPrefix — город или вся страна). */
+export async function replaceGold(db: Db, source: string, gold: NonNullable<AdapterResult['gold']>): Promise<void> {
+  await db.delete(goldPrices).where(and(eq(goldPrices.source, source), like(goldPrices.owner, `${gold.ownerPrefix}%`)));
+  for (const part of chunks(gold.items)) {
+    await db.insert(goldPrices).values(part.map((g) => ({ ...g, fetchedAt: new Date() }))).onConflictDoNothing();
+  }
 }

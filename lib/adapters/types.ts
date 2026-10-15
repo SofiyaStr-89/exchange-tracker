@@ -47,9 +47,25 @@ export interface NormalizedRate {
   source: string;
 }
 
+export interface NormalizedGold {
+  country: Country;
+  /** id обменника или `bank:<название банка в нижнем регистре>` */
+  owner: string;
+  /** purity — цена за 1 г по пробе (kantor); bar — цена мерного слитка по весу (банк) */
+  kind: 'purity' | 'bar';
+  /** проба («999») или вес слитка в граммах («10») */
+  item: string;
+  buy: number | null;
+  sell: number | null;
+  priceUpdatedAt: Date | null;
+  source: string;
+}
+
 export interface AdapterResult {
   exchangers: NormalizedExchanger[];
   rates: NormalizedRate[];
+  /** Цены золота источника: все записи источника с owner, начинающимся с ownerPrefix, заменяются этими. */
+  gold?: { ownerPrefix: string; items: NormalizedGold[] };
 }
 
 /** Курс источника за `amount` единиц → за 1 единицу; 0, пусто и мусор → null (правила склейки 4 и 5). */

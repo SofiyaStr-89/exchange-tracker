@@ -507,6 +507,12 @@ body {
   color: var(--muted);
 }
 
+/* Золото */
+.gold-title {
+  margin: 14px 0 4px;
+  font-size: 15px;
+}
+
 /* Несколько пунктов в одном месте */
 .card-back {
   display: block;

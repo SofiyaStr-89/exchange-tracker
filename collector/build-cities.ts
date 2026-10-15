@@ -121,7 +121,7 @@ for (const [slug, name] of plCities) {
     missing.push(`PL ${name}`);
     continue;
   }
-  const sources: Record<string, string> = { kantorlive: slug, kursarz: `pl-${slug}`, marketportal: slug };
+  const sources: Record<string, string> = { kantorlive: slug, kursarz: `pl-${slug}`, 'kursarz-gold': `pl-${slug}`, marketportal: slug };
   if (EXG.has(slug)) sources.exg = slug;
   if (SPRAWA.has(slug)) sources.sprawa = slug;
   sources.site = `pl-${slug}`;
@@ -139,7 +139,7 @@ for (const [slug, name] of byCities) {
   }
   const stem = name.toLowerCase().replace(/ё/g, 'е').slice(0, Math.max(4, name.length - 1));
   out.push(
-    `  { id: 'by-${slug}', country: 'BY', name: ${JSON.stringify(name)}, lat: ${p.lat.toFixed(5)}, lng: ${p.lng.toFixed(5)}, sources: ${JSON.stringify({ belarusbank: `by-${slug}`, myfin: slug })}, aliases: ${JSON.stringify([stem, slug])} },`,
+    `  { id: 'by-${slug}', country: 'BY', name: ${JSON.stringify(name)}, lat: ${p.lat.toFixed(5)}, lng: ${p.lng.toFixed(5)}, sources: ${JSON.stringify({ belarusbank: `by-${slug}`, myfin: slug, 'myfin-gold': 'by' })}, aliases: ${JSON.stringify([stem, slug])} },`,
   );
 }
 

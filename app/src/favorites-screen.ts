@@ -14,9 +14,11 @@ export interface FavoritesScreenOptions {
   getIds: () => string[];
   getView: () => { currency: string; mode: Mode };
   onSelect: (e: ApiExchanger) => void;
+  /** Золото из ответа избранного — чтобы оно было в карточке, открытой из списка. */
+  onGold?: (gold: Record<string, import('./api.js').ApiGold[]>) => void;
 }
 
-export function createFavoritesScreen({ getIds, getView, onSelect }: FavoritesScreenOptions) {
+export function createFavoritesScreen({ getIds, getView, onSelect, onGold }: FavoritesScreenOptions) {
   const list = el('div', { className: 'favorites-list' });
   const close = el('button', { className: 'card-close', text: '×' });
   close.type = 'button';
@@ -69,6 +71,7 @@ export function createFavoritesScreen({ getIds, getView, onSelect }: FavoritesSc
     try {
       const data = await fetchFavorites(ids);
       if (my !== seq || screen.hidden) return;
+      onGold?.(data.gold ?? {});
       const sorted = [...data.exchangers].sort((a, b) => a.city.localeCompare(b.city) || a.name.localeCompare(b.name));
       list.replaceChildren(
         ...(sorted.length ? sorted.map(row) : [el('p', { className: 'muted', text: t.favoritesGone })]),

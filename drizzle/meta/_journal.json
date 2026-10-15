@@ -22,6 +22,13 @@
       "when": 1791897105072,
       "tag": "0002_coords_checked",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792053884987,
+      "tag": "0003_gold_prices",
+      "breakpoints": true
     }
   ]
 }

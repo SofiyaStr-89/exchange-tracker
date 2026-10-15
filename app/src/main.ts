@@ -5,7 +5,8 @@ import { createClusterGroup, type PlateMarker } from './clusters.js';
 import { isTooLarge, type Bounds } from '../../lib/bounds.js';
 import { distanceMeters } from '../../lib/geo.js';
 import { COUNTRY_TIME_ZONE, nextOpening, openState } from '../../lib/hours.js';
-import { fetchExchangers, type ApiExchanger } from './api.js';
+import { fetchExchangers, type ApiExchanger, type ApiGold } from './api.js';
+import { goldOwners } from '../../lib/gold.js';
 import { renderCard, type CalcState } from './card.js';
 import { renderPlace, type PlaceItem } from './place-card.js';
 import { groupByPlace } from './places.js';
@@ -48,6 +49,8 @@ const state = {
   favorites: cleanFavorites(load<unknown>('favorites', [])),
   country: 'PL' as Country,
   exchangers: [] as ApiExchanger[],
+  // Золото по владельцам (id обменника или банк Беларуси) — из ответов карты и избранного.
+  gold: {} as Record<string, ApiGold[]>,
   nearest: [] as ApiExchanger[],
 };
 
@@ -106,6 +109,7 @@ refreshBadge.hidden = true;
 const favoritesScreen = createFavoritesScreen({
   getIds: () => state.favorites,
   getView: () => ({ currency: state.currency, mode: state.mode }),
+  onGold: (gold) => Object.assign(state.gold, gold),
   onSelect: (e) => {
     map.setView([e.lat, e.lng], Math.max(map.getZoom(), DEFAULT_ZOOM)); // moveend → подгрузка области
     openCard(e);
@@ -212,6 +216,7 @@ function openCard(e: ApiExchanger, onBack?: () => void): void {
   const from = state.user ?? map.getCenter();
   renderCard(card, e, {
     onBack,
+    gold: goldOwners(e).flatMap((owner) => state.gold[owner] ?? []),
     currency: state.currency,
     mode: state.mode,
     calc: state.calc,
@@ -338,6 +343,7 @@ async function loadView(attempt = 0): Promise<void> {
     const data = await fetchExchangers(bounds, state.currency);
     if (seq !== requestSeq) return; // карту уже сдвинули — ответ устарел
     state.exchangers = data.exchangers;
+    Object.assign(state.gold, data.gold);
     state.nearest = data.nearest;
     refreshBadge.hidden = !data.refreshing;
     renderPlates();

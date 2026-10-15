@@ -69,3 +69,23 @@ export const cityFetches = pgTable(
   },
   (t) => [primaryKey({ columns: [t.source, t.country, t.city] })],
 );
+
+/**
+ * Золото (решение 15.10.2026). Владелец — обменник (kantor: цена за 1 г по пробе) или банк Беларуси целиком
+ * (`bank:<название>`: цена мерного слитка по весу; в каких отделениях слитки есть — источник не говорит).
+ */
+export const goldPrices = pgTable(
+  'gold_prices',
+  {
+    source: text('source').notNull(),
+    country: text('country', { enum: ['PL', 'BY'] }).notNull(),
+    owner: text('owner').notNull(), // id обменника или «bank:беларусбанк»
+    kind: text('kind', { enum: ['purity', 'bar'] }).notNull(), // purity — за 1 г пробы; bar — за слиток
+    item: text('item').notNull(), // «999», «585» или вес в граммах «10»
+    buy: doublePrecision('buy'), // обменник/банк покупает
+    sell: doublePrecision('sell'), // обменник/банк продаёт
+    priceUpdatedAt: timestamp('price_updated_at', { withTimezone: true }),
+    fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.source, t.owner, t.kind, t.item] })],
+);

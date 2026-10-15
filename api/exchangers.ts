@@ -7,7 +7,7 @@ import { waitUntil } from '@vercel/functions';
 import { citiesNear } from '../lib/cities.js';
 import { getDb } from '../lib/db/index.js';
 import { boundsCenter, isTooLarge, MAX_SIDE_M, type Bounds } from '../lib/bounds.js';
-import { loadInBounds } from '../lib/exchangers.js';
+import { loadGold, loadInBounds } from '../lib/exchangers.js';
 import { planRefresh, runCollects } from '../lib/refresh.js';
 
 const isLat = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= -90 && v <= 90;
@@ -42,12 +42,14 @@ export async function POST(request: Request): Promise<Response> {
   if (plan.stale.length) waitUntil(runCollects(db, plan.stale));
 
   const { inView, nearest } = await loadInBounds(db, bounds, currency);
+  const gold = await loadGold(db, inView);
   return Response.json(
     {
       refreshing: plan.stale.length > 0,
       dataFetchedAt: plan.firstTime.length ? new Date() : plan.oldestFetchedAt,
       exchangers: inView,
       nearest,
+      gold,
     },
     { headers: noStore },
   );

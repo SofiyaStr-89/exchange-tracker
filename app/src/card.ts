@@ -2,7 +2,7 @@
 
 import { COUNTRY_TIME_ZONE, nextOpening, openState } from '../../lib/hours.js';
 import { SOURCE_SITES } from '../../lib/sources.js';
-import type { ApiExchanger } from './api.js';
+import type { ApiExchanger, ApiGold } from './api.js';
 import { el } from './dom.js';
 import { rateTime, type ApiRate, type Mode } from './rates.js';
 import { calculate, parseAmount, type Direction } from './calculator.js';
@@ -28,6 +28,8 @@ export interface CardOptions {
   /** Расстояние до обменника и от чего оно посчитано (FR-28). */
   distance: { meters: number; fromUser: boolean };
   onClose: () => void;
+  /** Цены золота этого обменника (или его банка в Беларуси). */
+  gold?: ApiGold[];
   /** Карточка открыта из списка пунктов одного места — кнопка «назад» к списку. */
   onBack?: () => void;
 }
@@ -132,6 +134,37 @@ function routeBlock(e: ApiExchanger): HTMLElement {
   return wrap;
 }
 
+/**
+ * Золото: kantor — проба и цена за 1 г; банк Беларуси — слиток по весу с пометкой, что это цены банка.
+ * Подписи — с точки зрения пользователя (FR-12): «Покупаю» — цена продажи, «Продаю» — цена покупки.
+ */
+function goldBlock(gold: ApiGold[] | undefined, local: string, timeZone: string): HTMLElement | null {
+  if (!gold?.length) return null;
+  const bars = gold.filter((g) => g.kind === 'bar').sort((a, b) => Number(a.item) - Number(b.item));
+  const purity = gold.filter((g) => g.kind === 'purity').sort((a, b) => Number(b.item) - Number(a.item));
+  const list = bars.length ? bars : purity;
+  const money = (v: number | null) => el('td', { text: v === null ? '—' : formatMoney(v, local) });
+  const head = el(
+    'tr',
+    {},
+    el('th', { text: bars.length ? t.goldBar : t.goldPurity }),
+    el('th', { text: fmt(t.buyLabel, { currency: '' }).trim() }),
+    el('th', { text: fmt(t.sellLabel, { currency: '' }).trim() }),
+  );
+  const rows = list.map((g) => el('tr', {}, el('td', { text: bars.length ? fmt(t.goldGrams, { n: g.item }) : g.item }), money(g.sell), money(g.buy)));
+  const times = list.map((g) => g.priceUpdatedAt).filter((x): x is string => !!x).sort();
+  const latest = times[times.length - 1];
+  return el(
+    'div',
+    { className: 'gold other-currencies' },
+    el('h3', { className: 'gold-title', text: t.goldTitle }),
+    purity.length && !bars.length ? el('p', { className: 'muted', text: t.goldPerGram }) : null,
+    el('table', {}, el('thead', {}, head), el('tbody', {}, ...rows)),
+    latest ? el('p', { className: 'muted', text: formatUpdated(latest, timeZone, new Date(), t.goldUpdatedToday, t.goldUpdatedOn) }) : null,
+    bars.length ? el('p', { className: 'muted', text: t.goldBankNote }) : null,
+  );
+}
+
 function hoursLine(e: ApiExchanger, timeZone: string): { text: string; open: boolean; known: boolean } {
   const state = openState(e.hours, timeZone);
   if (!state.known) return { text: t.hoursUnknown, open: true, known: false };
@@ -141,7 +174,7 @@ function hoursLine(e: ApiExchanger, timeZone: string): { text: string; open: boo
   return { text, open: state.open, known: true };
 }
 
-export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, mode, calc, onCalcChange, favorite, onToggleFavorite, distance, onClose, onBack }: CardOptions): void {
+export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, mode, calc, onCalcChange, favorite, onToggleFavorite, distance, onClose, onBack, gold }: CardOptions): void {
   const timeZone = COUNTRY_TIME_ZONE[e.country] ?? 'Europe/Warsaw';
   const local = LOCAL_CURRENCY[e.country] ?? '';
   const rate = e.rates[currency];
@@ -191,6 +224,7 @@ export function renderCard(container: HTMLElement, e: ApiExchanger, { currency, 
       : el('p', { className: 'card-no-rate', text: hasAnyRate ? fmt(t.noRateForCurrency, { currency }) : t.noRatePublished }),
     rate ? calculator(rate, currency, local, mode, calc, onCalcChange) : null,
     otherCurrencies(e, currency, local),
+    goldBlock(gold, local, timeZone),
     el(
       'p',
       {},

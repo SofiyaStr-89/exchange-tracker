@@ -15,11 +15,11 @@ export function formatDistance(meters: number): string {
 export const LOCAL_CURRENCY: Record<string, string> = { PL: 'zł', BY: 'BYN' };
 
 /** «сегодня в 18:00» или «07.10 в 18:00» по времени страны обменника. */
-export function formatUpdated(iso: string, timeZone: string, now = new Date()): string {
+export function formatUpdated(iso: string, timeZone: string, now = new Date(), today = t.rateUpdatedToday, on = t.rateUpdatedOn): string {
   const date = new Date(iso);
   const day = (d: Date) => d.toLocaleDateString('ru-RU', { timeZone, day: '2-digit', month: '2-digit' });
   const time = date.toLocaleTimeString('ru-RU', { timeZone, hour: '2-digit', minute: '2-digit' });
-  return day(date) === day(now) ? fmt(t.rateUpdatedToday, { time }) : fmt(t.rateUpdatedOn, { date: day(date), time });
+  return day(date) === day(now) ? fmt(today, { time }) : fmt(on, { date: day(date), time });
 }
 
 const ON_DAY: Record<NextOpening['weekday'], string> = {
