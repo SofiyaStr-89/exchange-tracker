@@ -235,7 +235,8 @@ function openCard(e: ApiExchanger, onBack?: () => void): void {
       renderPlates(); // FR-18: ★ на плашке
     },
     distance: { meters: distanceMeters(from, e), fromUser: state.user !== null },
-    onClose: closeCard,
+    // Из списка пунктов одного места крестик возвращает к списку, а не закрывает всё (отзыв 15.10.2026).
+    onClose: onBack ?? closeCard,
   });
 }
 
