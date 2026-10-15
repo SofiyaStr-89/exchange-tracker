@@ -36,7 +36,9 @@ export const ru = {
   emptyFar: 'Здесь и на 20 км вокруг обменников с курсом {currency} нет. Отдалите карту или откройте другой город.',
   showNearest: 'Показать',
   dismiss: 'Скрыть',
-  mapAttribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+  // GeoNames (CC BY 4.0) — справочник мест для подсказок поиска.
+  mapAttribution:
+    '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors · <a href="https://www.geonames.org" target="_blank" rel="noopener">GeoNames</a>',
   you: 'Вы здесь',
 
   close: 'Закрыть',

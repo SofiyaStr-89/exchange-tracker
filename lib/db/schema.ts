@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import {
   doublePrecision,
   index,
+  integer,
   jsonb,
   pgTable,
   primaryKey,
@@ -88,4 +89,25 @@ export const goldPrices = pgTable(
     fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.source, t.owner, t.kind, t.item] })],
+);
+
+/**
+ * Населённые пункты и районы городов Польши и Беларуси из GeoNames (CC BY 4.0) — быстрые подсказки поиска
+ * (решение 15.10.2026: публичный Photon отвечал по 8–10 с). `search` — «|вариант|вариант|» в нижнем регистре
+ * без диакритики, для поиска по началу любого варианта названия (русского, белорусского, польского, латиницей).
+ */
+export const places = pgTable(
+  'places',
+  {
+    id: integer('id').primaryKey(), // geonameid
+    country: text('country', { enum: ['PL', 'BY'] }).notNull(),
+    name: text('name').notNull(),
+    names: jsonb('names').$type<string[]>().notNull(),
+    search: text('search').notNull(),
+    lat: doublePrecision('lat').notNull(),
+    lng: doublePrecision('lng').notNull(),
+    population: integer('population').notNull().default(0),
+    kind: text('kind').notNull(), // код GeoNames: PPLC, PPLA, PPL, PPLX (район города)…
+  },
+  (t) => [index('places_country_idx').on(t.country)],
 );

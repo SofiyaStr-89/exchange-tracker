@@ -7,7 +7,7 @@ import { CITIES_DATA } from '../../lib/cities-data.js';
 import { countryAt } from './currencies.js';
 import { el } from './dom.js';
 import { t } from './i18n/index.js';
-import { citySuggestions, dedupeSuggestions, photonToSuggestion, splitCityQuery, type Suggestion } from './search-logic.js';
+import { citySuggestions, dedupeSuggestions, dropNearDuplicates, photonToSuggestion, splitCityQuery, type Suggestion } from './search-logic.js';
 
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 300;
@@ -64,6 +64,18 @@ async function photonRu(
   const translated = toRu(await photon(be, near, signal).catch(quiet));
   if (translated.length) onPartial(translated);
   return [...translated, ...toRu(await original)];
+}
+
+/** Места из нашего справочника (POST: набранное и центр карты — не в адресе запроса). */
+async function fetchPlaces(q: string, near: { lat: number; lng: number }, signal: AbortSignal): Promise<Suggestion[]> {
+  const res = await fetch('/api/places', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ q, near: { lat: near.lat, lng: near.lng } }),
+    signal,
+  });
+  if (!res.ok) throw new Error(`places: HTTP ${res.status}`);
+  return ((await res.json()) as { places: Suggestion[] }).places;
 }
 
 async function nominatim(query: string): Promise<Suggestion | null> {
@@ -128,21 +140,36 @@ export function createSearch(options: { getCenter: () => { lat: number; lng: num
   const run = async (query: string) => {
     controller?.abort();
     controller = new AbortController();
+    const signal = controller.signal;
     const local = citySuggestions(query, CITIES_DATA);
     const { city, rest } = splitCityQuery(query, CITIES_DATA);
-    // Сразу — города из нашего списка и «Ищу…»: ответ Photon (а при кириллице ещё и словарь) идёт секунду-другую.
-    render(city ? [] : local, false, true);
-    try {
-      const near = city ?? options.getCenter();
-      const head = city ? [] : local;
-      const remote = hasCyrillic(rest)
-        ? await photonRu(rest, near, controller.signal, (items) => render(dedupeSuggestions([...head, ...items]).slice(0, 7), false, true))
-        : await photon(rest, near, controller.signal);
-      render(dedupeSuggestions([...head, ...remote]).slice(0, 7), true);
-    } catch (err) {
-      if ((err as Error).name === 'AbortError') return;
-      render(local, true); // Photon недоступен — хотя бы города
-    }
+    const near = city ?? options.getCenter();
+    // Сверху — места (наш список городов и справочник GeoNames, доли секунды), ниже — Photon (адреса, места; медленно).
+    let head: Suggestion[] = city ? [] : local;
+    let tail: Suggestion[] = [];
+    const show = (done: boolean) => render(dedupeSuggestions([...head, ...dropNearDuplicates(tail, head)]).slice(0, 8), done, !done);
+    show(false);
+    const placesDone = city
+      ? Promise.resolve()
+      : fetchPlaces(rest, near, signal).then((found) => {
+          head = dedupeSuggestions([...local, ...dropNearDuplicates(found, local)]);
+          show(false);
+        });
+    const photonDone = (
+      hasCyrillic(rest)
+        ? photonRu(rest, near, signal, (items) => {
+            tail = items;
+            show(false);
+          })
+        : photon(rest, near, signal)
+    ).then((items) => {
+      tail = items;
+    });
+    const results = await Promise.allSettled([placesDone, photonDone]);
+    if (signal.aborted) return;
+    // Photon недоступен — остаются места; вообще ничего — «Ничего не нашлось».
+    if (results.every((r) => r.status === 'rejected')) return render(local, true);
+    show(true);
   };
 
   input.addEventListener('input', () => {

@@ -75,3 +75,10 @@ export function dedupeSuggestions(items: Suggestion[]): Suggestion[] {
     return true;
   });
 }
+
+/** То же место из другого источника (одно название, ближе 3 км) — повтор: «Колодищи» из справочника и из Photon. */
+export function dropNearDuplicates(items: Suggestion[], existing: Suggestion[], km = 3): Suggestion[] {
+  const same = (a: Suggestion, b: Suggestion) =>
+    plain(a.label) === plain(b.label) && Math.hypot((a.lat - b.lat) * 111, (a.lng - b.lng) * 111 * Math.cos((a.lat * Math.PI) / 180)) <= km;
+  return items.filter((s) => !existing.some((e) => same(s, e)));
+}

@@ -29,6 +29,13 @@
       "when": 1792053884987,
       "tag": "0003_gold_prices",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792067208091,
+      "tag": "0004_places",
+      "breakpoints": true
     }
   ]
 }
