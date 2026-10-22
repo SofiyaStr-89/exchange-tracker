@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { brokenSources, type FetchRow } from '../lib/health.js';
+import { brokenSources, STALE_LIMIT_MS, type FetchRow } from '../lib/health.js';
 
 const now = new Date('2026-10-14T03:00:00Z');
 const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600_000);
@@ -11,9 +11,21 @@ describe('оповещение о падении адаптера', () => {
     expect(brokenSources([row({})], now, maxAge)).toEqual([]);
   });
 
-  it('ошибки и нет удачных сборов больше суток — сломан', () => {
-    const broken = brokenSources([row({ status: 'error', error: 'HTTP 500', fetchedAt: hoursAgo(30), startedAt: hoursAgo(2) })], now, maxAge);
-    expect(broken).toEqual([{ source: 'marketportal', lastSuccessAt: hoursAgo(30), error: 'HTTP 500' }]);
+  it('одна пропущенная ночь (последний удачный сбор 30 ч назад, 429) — не тревога', () => {
+    const rows = [row({ source: 'kantorlive', status: 'error', error: 'kantor.live: HTTP 429', fetchedAt: hoursAgo(30), startedAt: hoursAgo(2) })];
+    expect(brokenSources(rows, now, maxAge)).toEqual([]);
+  });
+
+  it('источник молчит дольше порога (50 ч) — сломан', () => {
+    const broken = brokenSources([row({ status: 'error', error: 'HTTP 500', fetchedAt: hoursAgo(50), startedAt: hoursAgo(2) })], now, maxAge);
+    expect(broken).toEqual([{ source: 'marketportal', lastSuccessAt: hoursAgo(50), error: 'HTTP 500' }]);
+  });
+
+  it('порог — ровно STALE_LIMIT_MS (двое суток)', () => {
+    expect(STALE_LIMIT_MS).toBe(48 * 3600_000);
+    const at = (h: number) => brokenSources([row({ status: 'error', error: 'x', fetchedAt: hoursAgo(h), startedAt: hoursAgo(1) })], now, maxAge);
+    expect(at(47)).toEqual([]);
+    expect(at(49)).toHaveLength(1);
   });
 
   it('ни одного удачного сбора — сломан', () => {

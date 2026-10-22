@@ -4,6 +4,7 @@
 import type { WeekHours } from '../db/schema.js';
 import { distanceMeters } from '../geo.js';
 import { USER_AGENT } from '../probe.js';
+import { fetchWithRetry } from '../retry.js';
 import { zonedWallTimeToUtc } from '../time.js';
 import { isCryptoName, normalizeRate, safeWebsite, type AdapterResult, type NormalizedExchanger, type NormalizedRate } from './types.js';
 
@@ -126,10 +127,11 @@ export function parseKantorLive(json: KlResponse, citySlug: string): AdapterResu
 
 export async function fetchKantorLive(citySlug: string): Promise<AdapterResult> {
   const url = `https://kantor.live/api/v1/kantors?city=${encodeURIComponent(citySlug)}&per_page=1000&locale=pl`;
-  const response = await fetch(url, {
+  // 429 и 5xx у kantor.live бывают временными — повторяем в пределах MAX_RETRY_WAIT_MS (lib/retry.ts).
+  const response = await fetchWithRetry(url, () => ({
     headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
     signal: AbortSignal.timeout(20_000),
-  });
+  }));
   // 404 — у kantor.live нет такого города (посёлки из списка marketportal): это пустой город, а не сбой.
   if (response.status === 404) return { exchangers: [], rates: [] };
   if (!response.ok) throw new Error(`kantor.live: HTTP ${response.status}`);

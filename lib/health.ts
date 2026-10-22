@@ -1,10 +1,16 @@
 // Оповещение о падении адаптера (SPEC: «Источники»): какие источники сломаны.
 // Сломан — к нему обращались в последние двое суток, были ошибки, а удачного сбора нет дольше срока:
-// сутки или два обычных интервала источника (OSM собирается раз в неделю — тревога через две).
+// STALE_LIMIT_MS или два обычных интервала источника (OSM собирается раз в неделю — тревога через две).
 // Ошибка в одном городе при работающих остальных — не тревога (город мог пропасть у источника).
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RECENT_MS = 2 * DAY_MS;
+/**
+ * Сколько источник может молчать, прежде чем ночная проверка уронит задание (и придёт письмо).
+ * Двое суток: kantor.live иногда отвечает 429 (17, 18 и 22.10.2026), на следующий день проходит —
+ * одна пропущенная ночь письма не стоит.
+ */
+export const STALE_LIMIT_MS = 2 * DAY_MS;
 
 export interface FetchRow {
   source: string;
@@ -31,7 +37,7 @@ export function brokenSources(rows: FetchRow[], now: Date, maxAgeMs: (source: st
     if (!recentErrors.length) continue;
     const successes = list.map((r) => r.fetchedAt?.getTime() ?? 0);
     const last = Math.max(0, ...successes);
-    const limit = Math.max(DAY_MS, 2 * maxAgeMs(source));
+    const limit = Math.max(STALE_LIMIT_MS, 2 * maxAgeMs(source));
     if (last && now.getTime() - last <= limit) continue;
     broken.push({ source, lastSuccessAt: last ? new Date(last) : null, error: recentErrors[0]!.error ?? 'неизвестная ошибка' });
   }
