@@ -4,6 +4,8 @@
 
 import { textOf } from '../html.js';
 import { USER_AGENT } from '../probe.js';
+import { fetchWithRetry } from '../retry.js';
+import { KURSARZ_RETRY } from './kursarz.js';
 import { zonedWallTimeToUtc } from '../time.js';
 import type { AdapterResult, NormalizedGold } from './types.js';
 
@@ -49,7 +51,7 @@ export function parseKursarzGold(html: string, cityName: string, cityId: string)
 
 export async function fetchKursarzGold(cityName: string, cityId: string): Promise<AdapterResult> {
   const url = `https://kursarz.pl/metale/kursy-metali.html?filter_city=${encodeURIComponent(cityName)}&limit=0`;
-  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(20_000) });
+  const response = await fetchWithRetry(url, () => ({ headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(20_000) }), KURSARZ_RETRY);
   if (!response.ok) throw new Error(`kursarz золото: HTTP ${response.status}`);
   const html = await response.text();
   if (!html.includes('filter_city')) throw new Error('kursarz золото: нет таблицы — сменилась вёрстка?');

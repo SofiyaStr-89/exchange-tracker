@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { brokenSources, STALE_LIMIT_MS, type FetchRow } from '../lib/health.js';
+import { brokenSources, SECONDARY_STALE_LIMIT_MS, STALE_LIMIT_MS, type FetchRow } from '../lib/health.js';
 
 const now = new Date('2026-10-14T03:00:00Z');
 const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600_000);
@@ -45,5 +45,15 @@ describe('оповещение о падении адаптера', () => {
     const osm = (days: number) => [row({ source: 'osm', status: 'error', error: 'Overpass 504', fetchedAt: hoursAgo(days * 24), startedAt: hoursAgo(5) })];
     expect(brokenSources(osm(10), now, maxAge)).toEqual([]);
     expect(brokenSources(osm(15), now, maxAge)).toHaveLength(1);
+  });
+
+  it('дополнительный источник (kursarz): 3 суток молчания — не тревога, 6 суток — тревога; основной — тревога через 2', () => {
+    expect(SECONDARY_STALE_LIMIT_MS).toBe(5 * 24 * 3600_000);
+    const primary = (s: string) => s === 'kantorlive';
+    const silent = (source: string, h: number) =>
+      brokenSources([row({ source, status: 'error', error: 'HTTP 503', fetchedAt: hoursAgo(h), startedAt: hoursAgo(1) })], now, maxAge, primary);
+    expect(silent('kursarz', 72)).toEqual([]);
+    expect(silent('kursarz', 6 * 24)).toHaveLength(1);
+    expect(silent('kantorlive', 72)).toHaveLength(1);
   });
 });

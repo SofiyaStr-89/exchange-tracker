@@ -21,7 +21,7 @@ const rows = await getDb()
 
 // Только включённые источники: выключенный (например, Sprawa) не должен присылать письма.
 const active = new Set(CITIES.flatMap((c) => Object.keys(c.sources)));
-const broken = brokenSources(rows.filter((r) => active.has(r.source)), new Date(), (s) => ADAPTERS[s]?.maxAgeMs ?? FRESH_MS);
+const broken = brokenSources(rows.filter((r) => active.has(r.source)), new Date(), (s) => ADAPTERS[s]?.maxAgeMs ?? FRESH_MS, (s) => ADAPTERS[s]?.primary === true);
 if (!broken.length) {
   console.log('Все источники работают.');
   process.exit(0);

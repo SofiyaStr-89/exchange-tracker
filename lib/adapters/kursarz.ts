@@ -6,6 +6,7 @@
 
 import { textOf } from '../html.js';
 import { USER_AGENT } from '../probe.js';
+import { fetchWithRetry } from '../retry.js';
 import { zonedWallTimeToUtc } from '../time.js';
 import { isCryptoName, normalizeRate, type AdapterResult, type NormalizedExchanger, type NormalizedRate } from './types.js';
 
@@ -14,6 +15,8 @@ export const SOURCE = 'kursarz';
 export const MAX_AGE_MS = 30 * 60 * 1000;
 export const CURRENCIES = ['USD', 'EUR', 'GBP', 'CHF'];
 const PAUSE_MS = 1500;
+/** Один повтор через 3 с: если откажут все 4 страницы, это не больше 12 с к сбору города. */
+export const KURSARZ_RETRY = { delaysMs: [3_000], maxWaitMs: 3_000 };
 
 const cells = (row: string) => [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => m[1]!);
 const paragraphs = (cell: string) => [...cell.matchAll(/<p>([\s\S]*?)<\/p>/g)].map((m) => m[1]!);
@@ -83,7 +86,8 @@ export async function fetchKursarz(cityName: string, cityId: string): Promise<Ad
   for (const [i, currency] of CURRENCIES.entries()) {
     if (i > 0) await sleep(PAUSE_MS);
     const url = `https://kursarz.pl/kantory/kursy-walut.html?filter_val=${currency}&filter_city=${encodeURIComponent(cityName)}&limit=0`;
-    const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(20_000) });
+    // 503 у kursarz бывает временным: один короткий повтор (4 страницы подряд — время функции Vercel ограничено).
+    const response = await fetchWithRetry(url, () => ({ headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(20_000) }), KURSARZ_RETRY);
     if (!response.ok) throw new Error(`kursarz ${currency}: HTTP ${response.status}`);
     const html = await response.text();
     if (!html.includes('filter_val')) throw new Error('kursarz: нет таблицы курсов — сменилась вёрстка?');
