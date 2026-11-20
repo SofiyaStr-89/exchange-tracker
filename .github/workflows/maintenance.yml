@@ -50,9 +50,6 @@ jobs:
       - name: Часы работы новых отделений myfin (не больше 500 страниц за ночь, ~25 минут)
         if: env.DATABASE_URL != ''
         run: npm run myfin-details -- 500
-      - name: Еженедельно — пускает ли kursarz.pl снова наш сервер (если да — письмо, можно включать)
-        if: always() && env.DATABASE_URL != '' && (github.event.schedule == '40 2 * * 1' || github.event_name == 'workflow_dispatch')
-        run: npm run check-kursarz
       - name: Проверка источников — сломанный источник роняет запуск, GitHub пришлёт письмо
         if: always() && env.DATABASE_URL != ''
         run: npm run check-health

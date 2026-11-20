@@ -10,8 +10,8 @@ import { zonedWallTimeToUtc } from '../time.js';
 import type { AdapterResult, NormalizedGold } from './types.js';
 
 export const SOURCE = 'kursarz-gold';
-/** Цены металлов kantory меняют раз-два в день — чаще часа не ходим. */
-export const MAX_AGE_MS = 60 * 60 * 1000;
+/** Цены металлов kantory меняют раз-два в день — раз в 6 часов (было 1 ч; бережнее к kursarz, решение 20.11.2026). */
+export const MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 const cells = (row: string) => [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => m[1]!);
 const price = (cell: string) => {

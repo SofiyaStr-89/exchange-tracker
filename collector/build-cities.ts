@@ -110,9 +110,6 @@ for (const [map, names, cc] of [
 }
 
 // Источники, у которых есть город: kantor.live и marketportal — по коду marketportal, kursarz — по id города; exg и Sprawa — известные города.
-// kursarz.pl и его золото выключены 20.11.2026: с 06.11 отвечает нашему серверу 503 (с обычного компьютера — 200).
-// Включить обратно: добавить в sources kursarz: `pl-${slug}` и 'kursarz-gold': `pl-${slug}` и пересобрать города.
-// Вернулся ли доступ — еженедельно проверяет maintenance (npm run check-kursarz → /api/source-check).
 const EXG = new Set(['warszawa']);
 const SPRAWA = new Set(['warszawa', 'wroclaw', 'lodz']);
 
@@ -124,7 +121,7 @@ for (const [slug, name] of plCities) {
     missing.push(`PL ${name}`);
     continue;
   }
-  const sources: Record<string, string> = { kantorlive: slug, marketportal: slug };
+  const sources: Record<string, string> = { kantorlive: slug, kursarz: `pl-${slug}`, 'kursarz-gold': `pl-${slug}`, marketportal: slug };
   if (EXG.has(slug)) sources.exg = slug;
   if (SPRAWA.has(slug)) sources.sprawa = slug;
   sources.site = `pl-${slug}`;

@@ -11,10 +11,14 @@ import { zonedWallTimeToUtc } from '../time.js';
 import { isCryptoName, normalizeRate, type AdapterResult, type NormalizedExchanger, type NormalizedRate } from './types.js';
 
 export const SOURCE = 'kursarz';
-/** Город целиком — 4 страницы; чаще 30 минут ходить незачем (SPEC: «Вежливость»). */
-export const MAX_AGE_MS = 30 * 60 * 1000;
+/**
+ * Город целиком — 4 страницы. Раз в 3 часа (было 30 мин): kursarz.pl закрывал доступ нашему серверу на дни
+ * (15–18.10, 21–24.10, 06–19.11.2026), похоже, за частые запросы с одного адреса — ходим реже (решение 20.11.2026).
+ */
+export const MAX_AGE_MS = 3 * 60 * 60 * 1000;
 export const CURRENCIES = ['USD', 'EUR', 'GBP', 'CHF'];
-const PAUSE_MS = 1500;
+/** Пауза между страницами — 5 с (было 1,5 с), бережнее к kursarz. */
+const PAUSE_MS = 5000;
 /** Один повтор через 3 с: если откажут все 4 страницы, это не больше 12 с к сбору города. */
 export const KURSARZ_RETRY = { delaysMs: [3_000], maxWaitMs: 3_000 };
 
