@@ -13,6 +13,21 @@ const chunks = <T>(items: T[]) =>
 
 const keepCorrected = sql`(${exchangers.coordsSource} = 'address' and excluded.address = ${exchangers.address})`;
 
+/**
+ * Курсы только для обменников, которые ещё есть в базе. Сбор сайтов kantorów берёт список в начале и обходит
+ * сайты минуту-другую; за это время сбор marketportal может удалить пропавший у него kantor — и курс с удалённым
+ * обменником ронял всю пачку (ошибка внешнего ключа, 04–20.11.2026). Такие курсы просто пропускаем.
+ */
+export async function withExistingExchangers<T extends { exchangerId: string }>(db: Db, list: T[]): Promise<T[]> {
+  const ids = [...new Set(list.map((r) => r.exchangerId))];
+  if (!ids.length) return list;
+  const existing = new Set<string>();
+  for (const part of chunks(ids)) {
+    for (const r of await db.select({ id: exchangers.id }).from(exchangers).where(inArray(exchangers.id, part))) existing.add(r.id);
+  }
+  return list.filter((r) => existing.has(r.exchangerId));
+}
+
 export async function saveResult(db: Db, result: AdapterResult): Promise<void> {
   for (const part of chunks(result.exchangers)) {
     await db
@@ -41,7 +56,7 @@ export async function saveResult(db: Db, result: AdapterResult): Promise<void> {
       });
   }
 
-  for (const part of chunks(result.rates)) {
+  for (const part of chunks(await withExistingExchangers(db, result.rates))) {
     await db
       .insert(rates)
       .values(part)
