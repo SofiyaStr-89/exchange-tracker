@@ -9,7 +9,13 @@ import { and, eq, isNotNull, isNull, notLike } from 'drizzle-orm';
 import { getDb } from '../lib/db/index.js';
 import { exchangers } from '../lib/db/schema.js';
 import { distanceMeters } from '../lib/geo.js';
-import { geocodeGugik, geocodeGugikLoose, parsePolishAddress } from '../lib/geocode.js';
+import * as geo from '../lib/geocode.js';
+import { parsePolishAddress } from '../lib/geocode.js';
+import { reportServiceErrors, soft } from '../lib/soft.js';
+
+// Сбой GUGiK — точку не сверяем сейчас (и не отмечаем сверенной), а не роняем ночной шаг (lib/soft.ts).
+const geocodeGugik = soft(geo.geocodeGugik, undefined);
+const geocodeGugikLoose = soft(geo.geocodeGugikLoose, undefined);
 
 /** Меньшие расхождения — обычно торговый центр: точка адреса у входа, источник точнее ставит сам kantor. */
 const MAX_OFF_M = 500;
@@ -48,10 +54,11 @@ for (const e of todo) {
   }
   await sleep(PAUSE_MS);
   let point = await geocodeGugik(parsed);
-  if (!point) {
+  if (point === null) {
     await sleep(PAUSE_MS);
     point = await geocodeGugikLoose(parsed);
   }
+  if (point === undefined) continue; // GUGiK не ответил — сверим следующей ночью, не отмечая
   if (!point) {
     stats.notFound++;
     await markChecked(e.id);
@@ -68,3 +75,4 @@ for (const e of todo) {
   await markChecked(e.id, { lat: point.lat, lng: point.lng, coordsSource: 'address' });
 }
 console.log('Итог:', stats);
+reportServiceErrors();

@@ -7,10 +7,23 @@ import { getDb } from '../lib/db/index.js';
 import { exchangers } from '../lib/db/schema.js';
 import { CITIES } from '../lib/cities.js';
 import { distanceMeters } from '../lib/geo.js';
-import { byQueries, geocodeGugik, geocodeGugikLoose, geocodeIntersection, geocodeNominatimQuery, geocodeNominatim, geocodePhoton, intersectionStreets, geocodeNominatimBy, geocodePlaceBy, parsePolishAddress, placeNamesFromAddress, type Point } from '../lib/geocode.js';
+import * as geo from '../lib/geocode.js';
+import { byQueries, intersectionStreets, parsePolishAddress, placeNamesFromAddress, type Point } from '../lib/geocode.js';
 import { addressKey } from '../lib/merge.js';
 import { findTwin } from '../lib/twins.js';
-import { byAddressKey, fetchOnlinerPoints } from '../lib/onliner.js';
+import { byAddressKey, fetchOnlinerPoints as rawOnliner } from '../lib/onliner.js';
+import { reportServiceErrors, soft } from '../lib/soft.js';
+
+// Сбой сервиса адресов — «не найдено» для этого адреса, а не падение всего шага (lib/soft.ts).
+const geocodeGugik = soft(geo.geocodeGugik, null);
+const geocodeGugikLoose = soft(geo.geocodeGugikLoose, null);
+const geocodeNominatim = soft(geo.geocodeNominatim, null);
+const geocodePhoton = soft(geo.geocodePhoton, null);
+const geocodeIntersection = soft(geo.geocodeIntersection, null);
+const geocodeNominatimBy = soft(geo.geocodeNominatimBy, null);
+const geocodePlaceBy = soft(geo.geocodePlaceBy, null);
+const geocodeNominatimQuery = soft(geo.geocodeNominatimQuery, null);
+const fetchOnlinerPoints = soft(rawOnliner, []);
 
 const PAUSE_MS = 1100; // Nominatim: не больше 1 запроса в секунду
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -200,3 +213,4 @@ if (missingBy.length) {
   }
   console.log(`Беларусь: без координат было ${missingBy.length}.`, statsBy);
 }
+reportServiceErrors();
