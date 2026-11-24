@@ -138,10 +138,20 @@ export function hitMatchesKey(hit: NominatimHit, key: string): boolean {
   const words = m[1]!.split(/\s+/).map((w) => plainRu(w.replace(/\.$/, ''))).filter((w) => w.length >= 4);
   const house = plainRu(hit.address?.house_number ?? '');
   const road = plainRu([hit.address?.road, hit.address?.pedestrian, hit.address?.square].filter(Boolean).join(' '));
+  // Числа в названии улицы обязаны совпасть: «50 лет Октября» ≠ «40 лет Октября» (Жодино, 24.11.2026).
+  const streetNumbers = m[1]!.split(/\s+/).filter((w) => /^\d+$/.test(w));
+  const roadNumbers: string[] = road.match(/\d+/g) ?? [];
+  if (!streetNumbers.every((n) => roadNumbers.includes(n))) return false;
   return house.match(/^\d+/)?.[0] === m[2] && (!words.length || words.some((w) => road.includes(w.slice(0, 4))));
 }
 
-async function nominatimBy(q: string, key: string): Promise<Point | null> {
+/** Город из ответа Nominatim совпадает с нашим (в Беларуси город бывает в city, town или village). */
+function hitInCity(hit: NominatimHit, city: string): boolean {
+  const place = plainRu(hit.address?.city ?? hit.address?.town ?? hit.address?.village ?? '');
+  return place === plainRu(city);
+}
+
+async function nominatimBy(q: string, key: string, mustBeInCity?: string): Promise<Point | null> {
   const url = new URL('https://nominatim.openstreetmap.org/search');
   url.searchParams.set('q', q);
   url.searchParams.set('countrycodes', 'by');
@@ -154,7 +164,9 @@ async function nominatimBy(q: string, key: string): Promise<Point | null> {
   });
   if (!response.ok) throw new Error(`Nominatim: HTTP ${response.status}`);
   const hits = (await response.json()) as NominatimHit[];
-  const hit = hits.find((h) => !TOO_WIDE.has(h.addresstype ?? '') && (!key || hitMatchesKey(h, key)));
+  const hit = hits.find(
+    (h) => !TOO_WIDE.has(h.addresstype ?? '') && (!key || hitMatchesKey(h, key)) && (!mustBeInCity || hitInCity(h, mustBeInCity)),
+  );
   return hit ? { lat: Number(hit.lat), lng: Number(hit.lon) } : null;
 }
 
@@ -327,4 +339,25 @@ const TOO_WIDE = new Set(['country', 'state', 'region', 'county', 'municipality'
 
 export async function geocodeNominatimQuery(q: string, key = ''): Promise<Point | null> {
   return nominatimBy(`${q}, Беларусь`, key);
+}
+
+/**
+ * Последняя попытка для адреса Беларуси: номер дома без корпуса, литеры или помещения — «советская 82/1» → «советская 82»,
+ * «33а» → «33», «мира 4-50» → «мира 4» (в OpenStreetMap часто нет корпусов и литер). Соседний дом — в пределах квартала,
+ * поэтому принимаем только точку в том же городе (иначе «Первомайская 4» находилась в деревне под Слонимом).
+ */
+export function simplifiedHouseKey(address: string): string | null {
+  let key = byAddressKey(address);
+  // Ключ теряет число в начале названия улицы («ул.50 лет Октября» → «лет октября») — возвращаем его.
+  const lead = address.toLowerCase().replace(/ё/g, 'е').match(new RegExp(`(\\d+)\\s+${key.split(' ')[0]}`));
+  if (lead && key) key = `${lead[1]} ${key}`;
+  const m = key.match(/^(.*\S)\s+(\d+)(\S+)$/);
+  if (m) return `${m[1]} ${m[2]}`;
+  // «4-50» ключ уже обрезал до «4» — но в исходном адресе было уточнение через дефис: тоже упрощённый случай.
+  return /\d+-\d+/.test(address) && /\s\d+$/.test(key) ? key : null;
+}
+
+export async function geocodeSimplifiedBy(address: string, city: string): Promise<Point | null> {
+  const key = simplifiedHouseKey(address);
+  return key ? nominatimBy(`${key}, ${city}, Беларусь`, key, city) : null;
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { byQueries, cleanByAddress, hitMatchesKey, geocodeGugik, geocodeGugikLoose, geocodeIntersection, geocodeNominatim, geocodePhoton, intersectionStreets, parsePolishAddress, placeNamesFromAddress } from '../lib/geocode.js';
+import { byQueries, cleanByAddress, geocodeSimplifiedBy, hitMatchesKey, simplifiedHouseKey, geocodeGugik, geocodeGugikLoose, geocodeIntersection, geocodeNominatim, geocodePhoton, intersectionStreets, parsePolishAddress, placeNamesFromAddress } from '../lib/geocode.js';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -224,5 +224,31 @@ describe('проверка ответа Nominatim по адресу', () => {
   });
   it('без номера в ключе — не проверяем', () => {
     expect(hitMatchesKey(hit('', ''), '')).toBe(true);
+  });
+});
+
+describe('Беларусь: номер дома без корпуса, литеры и помещения', () => {
+  it('упрощённый ключ', () => {
+    expect(simplifiedHouseKey('улица Советская 82/1, Барановичи')).toBe('советская 82');
+    expect(simplifiedHouseKey('пр-т Мира, 4-50, Жодино')).toBe('мира 4');
+    expect(simplifiedHouseKey('ул. Первомайская, 4а, Слоним')).toBe('первомайская 4');
+    expect(simplifiedHouseKey('ул. Ленина, 5, Минск')).toBeNull(); // упрощать нечего
+  });
+
+  it('точка из другого населённого пункта не принимается', async () => {
+    // «Первомайская 4» находилась в деревне под Слонимом — не в самом Слониме.
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json([{ lat: '53.1071', lon: '25.3467', addresstype: 'building', address: { road: 'Первомайская улица', house_number: '4', village: 'Павловичи' } }])));
+    expect(await geocodeSimplifiedBy('ул. Первомайская, 4а, Слоним', 'Слоним')).toBeNull();
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json([{ lat: '54.0966', lon: '28.3157', addresstype: 'building', address: { road: 'проспект Мира', house_number: '4', town: 'Жодино' } }])));
+    expect(await geocodeSimplifiedBy('пр-т Мира, 4-50, Жодино', 'Жодино')).toEqual({ lat: 54.0966, lng: 28.3157 });
+  });
+});
+
+describe('числа в названии улицы', () => {
+  const hit = (road: string, house_number: string) => ({ lat: '0', lon: '0', address: { road, house_number } });
+  it('«50 лет Октября» не путается с «40 лет Октября»', () => {
+    expect(simplifiedHouseKey('ул.50 лет Октября, 33а, Жодино')).toBe('50 лет октября 33');
+    expect(hitMatchesKey(hit('улица 40 лет Октября', '33'), '50 лет октября 33')).toBe(false);
+    expect(hitMatchesKey(hit('улица 50 лет Октября', '33'), '50 лет октября 33')).toBe(true);
   });
 });

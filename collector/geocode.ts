@@ -8,7 +8,7 @@ import { exchangers } from '../lib/db/schema.js';
 import { CITIES } from '../lib/cities.js';
 import { distanceMeters } from '../lib/geo.js';
 import * as geo from '../lib/geocode.js';
-import { byQueries, intersectionStreets, parsePolishAddress, placeNamesFromAddress, type Point } from '../lib/geocode.js';
+import { byQueries, intersectionStreets, parsePolishAddress, placeNamesFromAddress, simplifiedHouseKey, type Point } from '../lib/geocode.js';
 import { addressKey } from '../lib/merge.js';
 import { findTwin } from '../lib/twins.js';
 import { byAddressKey, fetchOnlinerPoints as rawOnliner } from '../lib/onliner.js';
@@ -23,6 +23,7 @@ const geocodeIntersection = soft(geo.geocodeIntersection, null);
 const geocodeNominatimBy = soft(geo.geocodeNominatimBy, null);
 const geocodePlaceBy = soft(geo.geocodePlaceBy, null);
 const geocodeNominatimQuery = soft(geo.geocodeNominatimQuery, null);
+const geocodeSimplifiedBy = soft(geo.geocodeSimplifiedBy, null);
 const fetchOnlinerPoints = soft(rawOnliner, []);
 
 const PAUSE_MS = 1100; // Nominatim: не больше 1 запроса в секунду
@@ -152,7 +153,8 @@ if (missingBy.length) {
       console.log(`✗ неизвестный город «${rawCity}», не геокодирую: ${address}`);
       continue;
     }
-    let point = byKey.get(byAddressKey(address)) ?? null;
+    // onliner знает только Минск: для Жодино он находил одноимённый «Мира 4» в Минске (24.11.2026).
+    let point = city === 'Минск' ? (byKey.get(byAddressKey(address)) ?? null) : null;
     let via = 'onliner';
     if (!point) {
       via = 'Nominatim';
@@ -194,6 +196,16 @@ if (missingBy.length) {
       point = cacheBy.get(qKey) ?? null;
       via = `Nominatim («${q}»)`;
       if (point) break;
+    }
+    // Последняя попытка: номер дома без корпуса/литеры/помещения, только в том же городе.
+    if (!point && simplifiedHouseKey(address)) {
+      const sKey = `s|${address}|${city}`;
+      if (!cacheBy.has(sKey)) {
+        await sleep(PAUSE_MS);
+        cacheBy.set(sKey, await geocodeSimplifiedBy(address, city));
+      }
+      point = cacheBy.get(sKey) ?? null;
+      via = `Nominatim (дом «${simplifiedHouseKey(address)}»)`;
     }
     // Точка дальше 40 км от центра города — скорее чужой одноимённый адрес.
     if (point && center && distanceMeters(point, center) > 40_000) {
