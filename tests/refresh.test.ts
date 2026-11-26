@@ -59,6 +59,19 @@ describe('decideRefresh: повтор после сбоя', () => {
   });
 });
 
+describe('decideRefresh: свой срок повтора после сбоя', () => {
+  it('kursarz после сбоя не дёргаем 2 дня, даже если данные устарели', () => {
+    const twoDays = 2 * 24 * 60 * 60_000;
+    const maxAge = () => twoDays;
+    const retry = (s: string) => (s === 'kursarz' ? twoDays : undefined);
+    const rows = [{ source: 'kursarz', city: 'warszawa', fetchedAt: min(6 * 24 * 60), startedAt: min(120), status: 'error' as const }];
+    const wanted = [{ source: 'kursarz', city: 'warszawa' }];
+    expect(decideRefresh(wanted, rows, now, maxAge, () => false, retry).stale).toEqual([]);
+    const later = new Date(now.getTime() + twoDays);
+    expect(decideRefresh(wanted, rows, later, maxAge, () => false, retry).stale).toEqual(wanted);
+  });
+});
+
 describe('decideRefresh: первый сбор города — ждём только основные источники', () => {
   it('основные — сразу, остальные — в фоне', () => {
     const jobs = [

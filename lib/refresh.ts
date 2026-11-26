@@ -37,6 +37,8 @@ export function decideRefresh(
   maxAgeMs: (source: string) => number,
   /** Основные источники ждём при первом открытии города; остальные дособираются в фоне. */
   isPrimary: (source: string) => boolean = () => true,
+  /** Через сколько повторять упавший источник; по умолчанию не дольше часа. */
+  retryAfterFailureMs: (source: string) => number | undefined = () => undefined,
 ): RefreshPlan {
   const byKey = new Map(rows.map((r) => [`${r.source}|${r.city}`, r]));
   const anyData = wanted.some((w) => byKey.get(`${w.source}|${w.city}`)?.fetchedAt);
@@ -46,7 +48,7 @@ export function decideRefresh(
     const row = byKey.get(`${job.source}|${job.city}`);
     const age = maxAgeMs(job.source);
     // Недавно упал — не дёргаем мёртвый сайт на каждом открытии карты; но и неделю (OSM) не ждём — не дольше часа.
-    const retryAfter = Math.min(age, RETRY_AFTER_FAILURE_MS);
+    const retryAfter = retryAfterFailureMs(job.source) ?? Math.min(age, RETRY_AFTER_FAILURE_MS);
     const recentFailure = row?.status === 'error' && row.startedAt && now.getTime() - row.startedAt.getTime() < retryAfter;
     if (row?.fetchedAt && job.source !== 'osm' && (!plan.oldestFetchedAt || row.fetchedAt < plan.oldestFetchedAt)) {
       plan.oldestFetchedAt = row.fetchedAt;
@@ -82,6 +84,7 @@ export async function planRefresh(db: Db, cities: City[], now = new Date()): Pro
     now,
     (source) => ADAPTERS[source]?.maxAgeMs ?? FRESH_MS,
     (source) => ADAPTERS[source]?.primary === true,
+    (source) => ADAPTERS[source]?.retryAfterFailureMs,
   );
 }
 

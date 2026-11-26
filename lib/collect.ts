@@ -31,6 +31,8 @@ interface Adapter {
   maxAgeMs?: number;
   /** Основной источник: при первом открытии города его ждём, остальные собираются в фоне. */
   primary?: boolean;
+  /** Через сколько повторять после сбоя; по умолчанию не дольше часа. Сайт, который закрывает доступ серверу, чаще не дёргаем. */
+  retryAfterFailureMs?: number;
 }
 
 export const ADAPTERS: Record<string, Adapter> = {
@@ -45,6 +47,7 @@ export const ADAPTERS: Record<string, Adapter> = {
       return fetchKursarz(city.name, city.id);
     },
     maxAgeMs: KURSARZ_MAX_AGE,
+    retryAfterFailureMs: KURSARZ_MAX_AGE,
   },
   [SPRAWA]: { country: 'PL', fetchCity: fetchSprawa },
   // Золото (решение 15.10.2026): kantory — kursarz по городу; банки Беларуси — myfin, одна страница на страну.
@@ -56,6 +59,7 @@ export const ADAPTERS: Record<string, Adapter> = {
       return fetchKursarzGold(city.name, city.id);
     },
     maxAgeMs: KURSARZ_GOLD_MAX_AGE,
+    retryAfterFailureMs: KURSARZ_GOLD_MAX_AGE,
   },
   [MYFIN_GOLD]: { country: 'BY', fetchCity: () => fetchMyfinGold(), maxAgeMs: MYFIN_GOLD_MAX_AGE },
   [BELARUSBANK]: {
